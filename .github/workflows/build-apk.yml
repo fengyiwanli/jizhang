@@ -35,17 +35,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: 生成签名密钥
-        working-directory: android
-        run: |
-          keytool -genkey -v \
-            -keystore app/jizhang.keystore \
-            -alias jizhang \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass jizhang123 \
-            -keypass jizhang123 \
-            -dname "CN=记一笔, OU=app, O=jiyibi, L=Shenzhen, ST=Guangdong, C=CN"
-
       - name: 构建 APK (Debug)
         working-directory: android
         run: |

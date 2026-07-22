@@ -1,0 +1,72 @@
+/**
+ * 全局样式 — 现代极简风格
+ *
+ * 配色:
+ *  - 珊瑚红 #E07B6C (支出强调色)
+ *  - 薄荷绿 #5FBB97 (收入强调色)
+ *  - 主青 #4ECDC4 (主题色)
+ */
+
+:root {
+  --color-primary: #4ECDC4;
+  --color-expense: #E07B6C;
+  --color-income: #5FBB97;
+  --color-bg: #F5F5F7;
+  --color-card: #FFFFFF;
+  --color-text-primary: #1A1A2E;
+  --color-text-secondary: #8E8E93;
+  --color-border: #E8E8ED;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* iOS 禁止输入时自动缩放 (font-size >= 16px) */
+input, select, textarea {
+  font-family: inherit;
+  font-size: 16px !important;
+}
+
+button {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 38px;
+  touch-action: manipulation;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 隐藏滚动条但可滚动 */
+::-webkit-scrollbar { width: 0; }

@@ -1,78 +1,26 @@
 /**
  * 首页 — 现代极简风格
  */
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Banknote, Building2, CreditCard, Smartphone } from 'lucide-react';
 import TransactionForm from './TransactionForm';
 import TransactionList from './TransactionList';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
-import { nowTimeUTC } from '@/core/datetime';
 
 export default function HomePage({ defAccountId }: { defAccountId?: string | null }) {
   const loadCategories = useCategoryStore((s) => s.loadCategories);
   const loadAccounts = useAccountStore((s) => s.loadAccounts);
   const loadTransactions = useTransactionStore((s) => s.loadTransactions);
-  const createTransaction = useTransactionStore((s) => s.createTransaction);
   const transactions = useTransactionStore((s) => s.transactions);
   const accounts = useAccountStore((s) => s.accounts);
-  const categories = useCategoryStore((s) => s.categories);
-
-  const [genCount, setGenCount] = useState(0);
-  const [genRunning, setGenRunning] = useState(false);
 
   useEffect(() => {
     loadCategories();
     loadAccounts();
     loadTransactions(200);
   }, []);
-
-  /** 随机生成 20 条账单 */
-  async function handleGenerate() {
-    if (genRunning) return;
-    setGenRunning(true);
-    const expenseCats = categories.filter((c) => c.type === 'expense' && !c.parentId);
-    const incomeCats = categories.filter((c) => c.type === 'income' && !c.parentId);
-    if (expenseCats.length === 0 || accounts.length === 0) {
-      setGenRunning(false);
-      return;
-    }
-
-    const notes = ['午餐', '晚餐', '超市', '打车', '咖啡', '地铁', '电影票', '话费', '淘宝', '房租', '工资', '兼职', '还款', '水果', '外卖'];
-
-    for (let i = 0; i < 20; i++) {
-      // 随机日期：最近30天
-      const d = new Date();
-      d.setDate(d.getDate() - Math.floor(Math.random() * 30));
-      const dateStr = d.toISOString().slice(0, 10);
-
-      const isExpense = Math.random() > 0.2;
-      const cats = isExpense ? expenseCats : incomeCats;
-      const cat = cats[Math.floor(Math.random() * cats.length)]!;
-      const amount = isExpense
-        ? (Math.random() * 800 + 5)  // 5-805 元
-        : (Math.random() * 5000 + 500); // 500-5500 元
-      const acc = accounts[Math.floor(Math.random() * accounts.length)]!;
-      const note = notes[Math.floor(Math.random() * notes.length)]!;
-
-      try {
-        await createTransaction({
-          type: isExpense ? 'expense' : 'income',
-          amountInYuan: Math.round(amount * 100) / 100,
-          accountId: acc.id,
-          categoryId: cat.id,
-          date: dateStr,
-          time: nowTimeUTC(),
-          note,
-        });
-      } catch { /* skip conflicts */ }
-    }
-
-    setGenCount((n) => n + 1);
-    setGenRunning(false);
-    loadTransactions(200);
-  }
 
   return (
     <div style={{ paddingBottom: 80 }}>
@@ -91,25 +39,6 @@ export default function HomePage({ defAccountId }: { defAccountId?: string | nul
 
       {/* 今日概览 */}
       <TodayBar transactions={transactions} />
-
-      {/* 调试按钮 */}
-      <div style={{ padding: '0 16px', marginBottom: 4 }}>
-        <button
-          onClick={handleGenerate}
-          disabled={genRunning}
-          style={{
-            width: '100%', padding: '8px 0',
-            border: '1px dashed #D1D1D6', borderRadius: 12,
-            background: '#FFF', color: '#8E8E93',
-            fontSize: 12, cursor: genRunning ? 'not-allowed' : 'pointer',
-            fontFamily: 'inherit', letterSpacing: 0.2,
-            opacity: genRunning ? 0.5 : 1,
-          }}
-        >
-          {genRunning ? '生成中...' : `⚡ 随机生成 20 条测试账单`}
-          {genCount > 0 && <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.5 }}>({genCount}次)</span>}
-        </button>
-      </div>
 
       {/* 最近交易 */}
       <div style={{ padding: '0 16px' }}>

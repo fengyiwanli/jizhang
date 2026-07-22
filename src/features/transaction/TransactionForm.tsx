@@ -3,7 +3,7 @@
  *
  * 布局: 日期 + 类型切换 → 金额 → 快捷金额 → 分类网格 → 底部操作
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import CategoryGrid from '@/shared/components/CategoryGrid';
 import { useCategoryStore } from '@/features/category/store';
@@ -31,8 +31,6 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const typeCategories = categories.filter((c) => c.type === type && !c.parentId);
   const accentColor = type === 'expense' ? '#E07B6C' : '#5FBB97';
 
-  useEffect(() => { amountRef.current?.focus(); }, [type]);
-
   function handleAmountChange(raw: string) {
     let v = raw.replace(/[^\d.]/g, '');
     const parts = v.split('.');
@@ -55,7 +53,6 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
       });
       setAmountStr('');
       setNote('');
-      amountRef.current?.focus();
     } catch {
       useToast.getState().error('保存失败，请重试');
     }
@@ -166,17 +163,17 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
       {/* 底部操作区 */}
       <div style={{
         borderTop: '1px solid #F0F0F2',
-        padding: '16px 20px 20px',
-        display: 'flex', gap: 10, alignItems: 'center',
+        padding: '12px 12px 16px',
+        display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
       }}>
-        {/* 账户选择 */}
-        <div style={{ position: 'relative', minWidth: 80 }}>
+        {/* 账户选择 — 手机端自适应宽度 */}
+        <div style={{ position: 'relative', flex: '0 0 auto', minWidth: 72, maxWidth: 100 }}>
           <select
             value={accountId || (accounts[0]?.id ?? '')}
             onChange={(e) => setAccountId(e.target.value)}
             style={{
               width: '100%',
-              padding: '10px 28px 10px 10px',
+              padding: '11px 26px 11px 10px',
               border: 'none',
               borderRadius: 12,
               background: '#F5F5F7',
@@ -186,6 +183,9 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
               appearance: 'none',
               cursor: 'pointer',
               fontWeight: 500,
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
             }}
           >
             {accounts.map((a) => (
@@ -199,15 +199,16 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
           />
         </div>
 
-        {/* 备注 */}
+        {/* 备注 — 自适应剩余空间 */}
         <input
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="添加备注..."
+          placeholder="备注"
           style={{
-            flex: 1,
-            padding: '10px 14px',
+            flex: '1 1 80px',
+            minWidth: 0,
+            padding: '11px 12px',
             border: 'none',
             borderRadius: 12,
             background: '#F5F5F7',
@@ -218,12 +219,13 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
           }}
         />
 
-        {/* 保存按钮 */}
+        {/* 保存按钮 — 不压缩 */}
         <button
           onClick={handleSave}
           disabled={amountYuan <= 0 || !categoryId || saving}
           style={{
-            padding: '10px 22px',
+            flex: '0 0 auto',
+            padding: '11px 20px',
             border: 'none',
             borderRadius: 12,
             background: (amountYuan > 0 && categoryId) ? accentColor : '#E8E8ED',

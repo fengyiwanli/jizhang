@@ -27,7 +27,9 @@ export default function SettingsView({
     <div style={{ minHeight: '100vh', background: '#F5F5F7' }}>
       {/* Header */}
       <div style={{
-        display: 'flex', alignItems: 'center', padding: '12px 12px',
+        display: 'flex', alignItems: 'center',
+        paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))',
+        paddingRight: 12, paddingBottom: 12, paddingLeft: 12,
         background: '#F5F5F7', position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={onBack} style={{

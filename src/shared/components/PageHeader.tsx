@@ -12,7 +12,9 @@ export default function PageHeader({ title, onSettings }: Props) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '12px 16px', background: '#F5F5F7',
+      paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))',
+      paddingRight: 16, paddingBottom: 12, paddingLeft: 16,
+      background: '#F5F5F7',
       position: 'sticky', top: 0, zIndex: 10,
     }}>
       <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1A1A2E', margin: 0, letterSpacing: -0.3 }}>

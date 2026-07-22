@@ -1,11 +1,11 @@
 {
-  "name": "记一笔",
-  "short_name": "记一笔",
-  "description": "个人记账 · 本地优先",
+  "name": "小账本",
+  "short_name": "小账本",
+  "description": "轻轻松松记好每一笔",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F5F5F7",
-  "theme_color": "#4ECDC4",
+  "theme_color": "#FF8C69",
   "icons": [
     {
       "src": "/icons/icon-192.png",

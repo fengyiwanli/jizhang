@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.jiyibi.app',
-  appName: '记一笔',
+  appName: '小账本',
   webDir: 'dist'
 };
 

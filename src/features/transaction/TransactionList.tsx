@@ -1,12 +1,14 @@
 /**
- * 交易列表 — 现代极简风格
+ * 交易列表 — 现代极简风格，含删除确认
  */
+import { useState } from 'react';
 import { useTransactionStore } from '@/features/transaction/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
 import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
-import { Zap } from 'lucide-react';
+import { useToast } from '@/shared/hooks/useToast';
+import { Zap, Trash2 } from 'lucide-react';
 
 export default function TransactionList() {
   const transactions = useTransactionStore((s) => s.transactions);
@@ -14,6 +16,18 @@ export default function TransactionList() {
   const deleteTransaction = useTransactionStore((s) => s.deleteTransaction);
   const categories = useCategoryStore((s) => s.categories);
   const accounts = useAccountStore((s) => s.accounts);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string) {
+    setDeletingId(id);
+    try {
+      await deleteTransaction(id);
+      useToast.getState().success('已删除');
+    } catch {
+      useToast.getState().error('删除失败');
+    }
+    setDeletingId(null);
+  }
 
   const grouped = transactions.reduce<Record<string, typeof transactions>>((acc, tx) => {
     if (!acc[tx.date]) acc[tx.date] = [];
@@ -109,7 +123,7 @@ export default function TransactionList() {
                       </div>
 
                       {/* 右侧: 金额 + 删除 */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{
                           fontWeight: 600, fontSize: 15,
                           color: isExpense ? '#E07B6C' : '#5FBB97',
@@ -119,15 +133,16 @@ export default function TransactionList() {
                           {isExpense ? '-' : '+'}¥{(tx.amount / 100).toFixed(2)}
                         </span>
                         <button
-                          onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id); }}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(tx.id); }}
+                          disabled={deletingId === tx.id}
                           style={{
-                            border: 'none', background: 'none',
-                            fontSize: 14, cursor: 'pointer',
-                            color: '#D1D1D6', padding: 4,
-                            transition: 'color 150ms',
+                            border: 'none', background: deletingId === tx.id ? '#F5F5F7' : 'transparent',
+                            borderRadius: 8, cursor: deletingId === tx.id ? 'not-allowed' : 'pointer',
+                            padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            opacity: deletingId === tx.id ? 0.4 : 1, transition: 'all 150ms',
                           }}
                         >
-                          ×
+                          <Trash2 size={15} color={deletingId === tx.id ? '#C0C0C0' : '#D1D1D6'} strokeWidth={1.5} />
                         </button>
                       </div>
                     </div>

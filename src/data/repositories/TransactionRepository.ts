@@ -20,6 +20,7 @@ import type {
 import type { UUID } from '@/core/types';
 import { generateUUID, generateClientId } from '@/core/uuid';
 import { nowUTC, todayUTC, nowTimeUTC } from '@/core/datetime';
+import { persistDatabase } from '../database/context';
 import { MoneyUtils } from '@/core/types';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 
@@ -61,6 +62,7 @@ export class TransactionRepository implements ITransactionRepository {
 
     const tx = await this.getById(id);
     if (!tx) throw new Error('Failed to create transaction');
+    persistDatabase();
     return tx;
   }
 
@@ -129,6 +131,7 @@ export class TransactionRepository implements ITransactionRepository {
 
     const updated = await this.getById(id);
     if (!updated) throw new Error(`Transaction not found after update: ${id}`);
+    persistDatabase();
     return updated;
   }
 
@@ -139,6 +142,7 @@ export class TransactionRepository implements ITransactionRepository {
       'UPDATE transactions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
       [now, now, id],
     );
+    persistDatabase();
   }
 
   /** 清除所有交易（调试用） */

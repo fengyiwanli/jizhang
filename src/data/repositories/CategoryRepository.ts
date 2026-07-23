@@ -7,6 +7,7 @@ import type { UUID } from '@/core/types';
 import { generateUUID } from '@/core/uuid';
 import { nowUTC } from '@/core/datetime';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
+import { persistDatabase } from '../database/context';
 
 export class CategoryRepository {
   constructor(private db: DatabaseAdapter) {}
@@ -80,6 +81,7 @@ export class CategoryRepository {
 
     const cat = await this.getById(id);
     if (!cat) throw new Error('Failed to create category');
+    persistDatabase();
     return cat;
   }
 
@@ -99,6 +101,7 @@ export class CategoryRepository {
       `UPDATE categories SET ${sets.join(', ')} WHERE id = ? AND deleted_at IS NULL`,
       params,
     );
+    persistDatabase();
   }
 
   /** 软删除分类 */
@@ -108,9 +111,8 @@ export class CategoryRepository {
       'UPDATE categories SET deleted_at = ?, updated_at = ? WHERE id = ?',
       [now, now, id],
     );
-  }
-
-  async clearAll(): Promise<void> {
+    persistDatabase();
+  }  async clearAll(): Promise<void> {
     await this.db.execute('DELETE FROM categories');
   }
 }

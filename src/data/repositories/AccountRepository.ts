@@ -8,6 +8,7 @@ import type { UUID } from '@/core/types';
 import { generateUUID } from '@/core/uuid';
 import { nowUTC, MoneyUtils } from '@/core';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
+import { persistDatabase } from '../database/context';
 
 export class AccountRepository {
   constructor(private db: DatabaseAdapter) {}
@@ -71,6 +72,7 @@ export class AccountRepository {
 
     const acc = await this.getById(id);
     if (!acc) throw new Error('Failed to create account');
+    persistDatabase();
     return acc;
   }
 
@@ -97,6 +99,7 @@ export class AccountRepository {
       `UPDATE accounts SET ${sets.join(', ')} WHERE id = ? AND deleted_at IS NULL`,
       params,
     );
+    persistDatabase();
   }
 
   /** 软删除 */
@@ -106,6 +109,7 @@ export class AccountRepository {
       'UPDATE accounts SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
       [now, now, id],
     );
+    persistDatabase();
   }
 
   async clearAll(): Promise<void> {

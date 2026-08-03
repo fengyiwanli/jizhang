@@ -82,9 +82,9 @@ export default function TransactionList() {
                   <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A2E', letterSpacing: -0.2 }}>
                     {fmtDate(date, today)}
                   </span>
-                  <span style={{ fontSize: 11, color: '#8E8E93' }}>
-                    {dayExpense > 0 && <span style={{ color: '#E07B6C', marginRight: 6 }}>支出 ¥{(dayExpense / 100).toFixed(0)}</span>}
-                    {dayIncome > 0 && <span style={{ color: '#5FBB97' }}>收入 ¥{(dayIncome / 100).toFixed(0)}</span>}
+                <span style={{ fontSize: 11, color: '#8E8E93', maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {dayExpense > 0 && <span style={{ color: '#E07B6C', marginRight: 6 }}>支出 ¥{(dayExpense / 100).toFixed(2)}</span>}
+                  {dayIncome > 0 && <span style={{ color: '#5FBB97' }}>收入 ¥{(dayIncome / 100).toFixed(2)}</span>}
                   </span>
                 </div>
 
@@ -126,8 +126,8 @@ export default function TransactionList() {
                           }}>
                             <IconComp size={18} strokeWidth={1.8} color={color} />
                           </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E' }}>
+                          <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                            <div style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {cat?.name ?? fmt.typeLabel}
                             </div>
                             <div style={{

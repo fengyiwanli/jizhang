@@ -166,16 +166,16 @@ export default function DailyDetailPage({ date, onBack }: Props) {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '11px 0', borderBottom: i < txs.length - 1 ? '1px solid #F5F5F7' : 'none',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                 <div style={{
                   width: 34, height: 34, borderRadius: 10, background: '#F5F5F7',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
                   <IconComp size={17} strokeWidth={1.8} color={color} />
                 </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1A1A2E' }}>{tx.categoryName}</div>
-                  <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 1 }}>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.categoryName}</div>
+                  <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {tx.time?.slice(0, 5)}{tx.note ? ` · ${tx.note}` : ''}{tx.accountName ? ` · ${tx.accountName}` : ''}
                   </div>
                 </div>
@@ -198,9 +198,9 @@ function SummaryBlock({ label, value, color, isCount }: {
   label: string; value: number; color: string; isCount?: boolean;
 }) {
   return (
-    <div style={{ textAlign: 'center', flex: 1 }}>
+    <div style={{ textAlign: 'center', flex: 1, minWidth: 0, overflow: 'hidden' }}>
       <div style={{ fontSize: 11, color: '#8E8E93' }}>{label}</div>
-      <div style={{ fontSize: 17, fontWeight: 700, color, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ fontSize: 17, fontWeight: 700, color, marginTop: 2, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {isCount ? value : `¥${(value / 100).toFixed(2)}`}
       </div>
     </div>

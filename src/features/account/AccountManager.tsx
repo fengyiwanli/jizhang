@@ -74,17 +74,17 @@ export default function AccountManager() {
             cursor: 'pointer',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <div style={{
               width: 40, height: 40, borderRadius: 12,
               background: '#F5F5F7',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
               <AccIcon size={20} strokeWidth={1.8} color="#4ECDC4" />
             </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E' }}>{acc.name}</div>
-              <div style={{ fontSize: 11, color: '#8E8E93' }}>
+            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acc.name}</div>
+              <div style={{ fontSize: 11, color: '#8E8E93', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {accountTypes.find((t) => t.value === acc.type)?.label ?? acc.type}
                 {acc.creditLimit ? ` · 额度 ¥${(acc.creditLimit / 100).toFixed(2)}` : ''}
               </div>

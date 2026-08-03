@@ -215,7 +215,7 @@ function TxItem({ categoryName, name, note, time, account, amount, type, tags }:
           <div style={{ fontSize: 13, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {name}
           </div>
-          <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 1 }}>
+          <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {time}
             {note && ` · ${note}`}
             {account && ` · ${account}`}

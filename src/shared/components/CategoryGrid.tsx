@@ -63,6 +63,7 @@ export default function CategoryGrid({ categories, selectedId, onSelect }: Categ
               color: isSelected ? color : '#8E8E93',
               transition: 'color 200ms ease',
               letterSpacing: 0.2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%',
             }}>
               {cat.name}
             </span>

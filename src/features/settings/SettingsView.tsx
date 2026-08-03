@@ -140,6 +140,7 @@ function Section({ children }: { children: React.ReactNode }) {
 
 const rowStyle: React.CSSProperties = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+  overflow: 'hidden',
 };
 const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: '#1A1A2E', marginBottom: 2 };
 const descStyle: React.CSSProperties = { fontSize: 11, color: '#8E8E93', lineHeight: 1.5 };
@@ -150,4 +151,5 @@ const amountInputStyle: React.CSSProperties = {
 const selectStyle: React.CSSProperties = {
   padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8,
   fontSize: 12, outline: 'none', fontFamily: 'inherit', color: '#1A1A2E', background: '#FFF',
+  maxWidth: 130, minWidth: 0,
 };

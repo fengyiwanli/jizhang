@@ -170,4 +170,5 @@ const amountInputStyle: React.CSSProperties = {
 const selectStyle: React.CSSProperties = {
   padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8,
   fontSize: 12, outline: 'none', fontFamily: 'inherit', color: '#1A1A2E', background: '#FFF',
+  maxWidth: 130, minWidth: 0,
 };

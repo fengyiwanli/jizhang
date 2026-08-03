@@ -181,7 +181,7 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => change(-1)} style={navBtn}>{'‹'}</button>
-          <span style={{ fontWeight: 700, fontSize: 16, color: '#1A1A2E', minWidth: 80, textAlign: 'center' }}>
+          <span style={{ fontWeight: 700, fontSize: 16, color: '#1A1A2E', minWidth: 80, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {view === 'month' ? yearMonth.replace('-', '年') + '月' : year + '年'}
           </span>
           <button onClick={() => change(1)} style={navBtn}>{'›'}</button>
@@ -270,9 +270,9 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function Card({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div style={{ padding: '12px 8px', background: '#FFF', borderRadius: 12, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${color}` }}>
+    <div style={{ padding: '12px 6px', background: '#FFF', borderRadius: 12, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${color}`, overflow: 'hidden' }}>
       <div style={{ fontSize: 11, color: '#8E8E93' }}>{label}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color, marginTop: 4, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
     </div>
   );
 }
@@ -291,15 +291,15 @@ function RankList({ title, stats, full }: { title: string; stats: CategoryStat[]
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '6px 0', borderBottom: i < list.length - 1 ? '1px solid #F5F5F7' : 'none',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: '#B0B0B0', width: 14, fontSize: 11 }}>{i + 1}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+              <span style={{ color: '#B0B0B0', width: 14, fontSize: 11, flexShrink: 0 }}>{i + 1}</span>
               <div style={{
                 width: 28, height: 28, borderRadius: 8, background: '#F5F5F7',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
                 <IconComp size={14} strokeWidth={1.8} color={color} />
               </div>
-              <span style={{ fontSize: 12, color: '#1A1A2E' }}>{c.categoryName}</span>
+              <span style={{ fontSize: 12, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.categoryName}</span>
             </div>
             <span style={{ fontSize: 12, color: '#1A1A2E', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
               ¥{(c.amount / 100).toFixed(2)}

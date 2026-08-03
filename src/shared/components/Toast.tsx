@@ -51,6 +51,9 @@ export function ToastContainer() {
               cursor: 'pointer',
               animation: 'toastIn 0.25s ease',
               whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: '100%',
             }}
           >
             {t.message}

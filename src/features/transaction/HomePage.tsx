@@ -81,7 +81,7 @@ function AssetsBar({ accounts, transactions }: {
       <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>
         总资产
       </div>
-      <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: -0.5, fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
+      <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: -0.5, fontVariantNumeric: 'tabular-nums', marginBottom: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         ¥{(total / 100).toFixed(2)}
       </div>
       {/* 逐账户展示 */}

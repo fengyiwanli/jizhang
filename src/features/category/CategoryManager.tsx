@@ -94,7 +94,7 @@ function CatChip({ cat, onClick }: { cat: Category; onClick: () => void }) {
       }}>
         <IconComp size={16} strokeWidth={1.8} color={color} />
       </div>
-      <span style={{ fontSize: 10, color: color }}>{cat.name}</span>
+      <span style={{ fontSize: 10, color: color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.name}</span>
     </button>
   );
 }

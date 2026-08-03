@@ -302,7 +302,7 @@ function RankList({ title, stats, full }: { title: string; stats: CategoryStat[]
               <span style={{ fontSize: 12, color: '#1A1A2E' }}>{c.categoryName}</span>
             </div>
             <span style={{ fontSize: 12, color: '#1A1A2E', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
-              ¥{(c.amount / 100).toFixed(0)}
+              ¥{(c.amount / 100).toFixed(2)}
             </span>
           </div>
         );

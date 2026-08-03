@@ -166,13 +166,13 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
         padding: '12px 12px 16px',
         display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
       }}>
-        {/* 账户选择 — 手机端自适应宽度 */}
-        <div style={{ position: 'relative', flex: '0 0 auto', minWidth: 72, maxWidth: 100 }}>
+        {/* 账户选择 — 宽度自适应，不截断文字 */}
+        <div style={{ position: 'relative', flexShrink: 0, maxWidth: '40%' }}>
           <select
             value={accountId || (accounts[0]?.id ?? '')}
             onChange={(e) => setAccountId(e.target.value)}
             style={{
-              width: '100%',
+              width: '100%', minWidth: 76,
               padding: '11px 26px 11px 10px',
               border: 'none',
               borderRadius: 12,

@@ -96,7 +96,7 @@ function AssetsBar({ accounts, transactions }: {
               <AccIcon size={12} strokeWidth={2} /> {acc.name}
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: -0.2 }}>
-              ¥{((balances[acc.id] ?? 0) / 100).toFixed(0)}
+              ¥{((balances[acc.id] ?? 0) / 100).toFixed(2)}
             </div>
           </div>
           );

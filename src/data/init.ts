@@ -21,13 +21,14 @@ export interface AppContext {
 }
 
 let appCtx: AppContext | null = null;
+const SEED_FLAG_KEY = 'bookkeeping_seeded_v2';
 
 /**
  * 初始化应用数据层
  *
  * 流程:
  * 1. 加载/创建 SQLite 数据库 (支持 localStorage 恢复)
- * 2. 检查并安装种子数据 (预设账本/分类/账户)
+ * 2. 首次启动时安装种子数据 (预设账本/分类/账户)
  * 3. 创建 Repository 实例
  */
 export async function initializeApp(): Promise<AppContext> {
@@ -35,10 +36,14 @@ export async function initializeApp(): Promise<AppContext> {
 
   const db = await getDatabase();
 
-  // 检查是否需要安装种子数据
-  const seeded = await isSeedInstalled(db);
+  // 仅首次启动安装种子数据（用 localStorage 标记，避免每次查库）
+  const seeded = localStorage.getItem(SEED_FLAG_KEY);
   if (!seeded) {
-    await installSeed(db);
+    const needSeed = !(await isSeedInstalled(db));
+    if (needSeed) {
+      await installSeed(db);
+    }
+    localStorage.setItem(SEED_FLAG_KEY, '1');
   }
 
   // 创建 Repository

@@ -86,7 +86,7 @@ export default function AccountManager() {
               <div style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E' }}>{acc.name}</div>
               <div style={{ fontSize: 11, color: '#8E8E93' }}>
                 {accountTypes.find((t) => t.value === acc.type)?.label ?? acc.type}
-                {acc.creditLimit ? ` · 额度 ¥${(acc.creditLimit / 100).toFixed(0)}` : ''}
+                {acc.creditLimit ? ` · 额度 ¥${(acc.creditLimit / 100).toFixed(2)}` : ''}
               </div>
             </div>
           </div>
@@ -95,7 +95,7 @@ export default function AccountManager() {
               fontSize: 14, fontWeight: 600, color: '#1A1A2E',
               fontVariantNumeric: 'tabular-nums',
             }}>
-              ¥{((balances[acc.id] ?? 0) / 100).toFixed(0)}
+              ¥{((balances[acc.id] ?? 0) / 100).toFixed(2)}
             </span>
             <span style={{ fontSize: 11, color: '#B0B0B0' }}>›</span>
           </div>

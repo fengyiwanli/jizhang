@@ -96,6 +96,25 @@ CREATE TABLE IF NOT EXISTS sync_log (
     synced_at   TEXT
 );
 
+-- 周期账单规则表 (固定收支)
+CREATE TABLE IF NOT EXISTS recurring_rules (
+    id          TEXT PRIMARY KEY,
+    ledger_id   TEXT NOT NULL REFERENCES ledgers(id),
+    type        TEXT NOT NULL CHECK(type IN ('income','expense')),
+    amount      INTEGER NOT NULL,
+    account_id  TEXT NOT NULL REFERENCES accounts(id),
+    category_id TEXT REFERENCES categories(id),
+    note        TEXT DEFAULT '',
+    frequency   TEXT NOT NULL CHECK(frequency IN ('daily','weekly','monthly','yearly')),
+    interval    INTEGER DEFAULT 1,
+    next_run    TEXT NOT NULL,
+    start_date  TEXT NOT NULL,
+    is_active   INTEGER DEFAULT 1,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    deleted_at  TEXT
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions(account_id);
@@ -104,6 +123,7 @@ CREATE INDEX IF NOT EXISTS idx_tx_ledger_date ON transactions(ledger_id, date);
 CREATE INDEX IF NOT EXISTS idx_sync_pending ON sync_log(synced_at) WHERE synced_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_cat_ledger ON categories(ledger_id, type);
 CREATE INDEX IF NOT EXISTS idx_acc_ledger ON accounts(ledger_id);
+CREATE INDEX IF NOT EXISTS idx_recurring_ledger ON recurring_rules(ledger_id);
 
 -- WAL 模式 (更快的并发读写)
 PRAGMA journal_mode=WAL;

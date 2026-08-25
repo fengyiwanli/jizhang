@@ -8,6 +8,7 @@ import StatsPage from '@/features/stats/StatsPage';
 import BillsPage from '@/features/bills/BillsPage';
 import SettingsPage from '@/features/settings/SettingsPage';
 import SettingsView from '@/features/settings/SettingsView';
+import RecurringManager from '@/features/settings/RecurringManager';
 import DailyDetailPage from '@/features/stats/DailyDetailPage';
 import { initializeApp, getAppContext } from '@/data/init';
 
@@ -32,7 +33,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 const STORAGE_KEY_BUDGET = 'bk_budget';
 const STORAGE_KEY_ACCOUNT = 'bk_default_acc';
 
-type View = { type: 'tabs'; tab: string } | { type: 'settings' } | { type: 'daily'; date: string };
+type View = { type: 'tabs'; tab: string } | { type: 'settings' } | { type: 'daily'; date: string } | { type: 'recurring' };
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'tabs', tab: 'home' });
@@ -92,8 +93,17 @@ export default function App() {
           budgetInYuan={budgetInYuan}
           budgetOnChange={handleBudgetChange}
           onClearData={handleClearData}
+          onOpenRecurring={() => setView({ type: 'recurring' })}
           onBack={() => setView({ type: 'tabs', tab: 'home' })}
         />
+      </ErrorBoundary>
+    );
+  }
+
+  if (view.type === 'recurring') {
+    return (
+      <ErrorBoundary>
+        <RecurringManager onBack={() => setView({ type: 'settings' })} />
       </ErrorBoundary>
     );
   }

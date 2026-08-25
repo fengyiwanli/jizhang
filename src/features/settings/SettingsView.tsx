@@ -11,13 +11,14 @@ interface Props {
   budgetInYuan: number | null;
   budgetOnChange: (v: number | null) => void;
   onClearData: () => void;
+  onOpenRecurring: () => void;
   onBack: () => void;
 }
 
 export default function SettingsView({
   defaultAccountId, defaultAccOnChange,
   budgetInYuan, budgetOnChange,
-  onClearData, onBack,
+  onClearData, onOpenRecurring, onBack,
 }: Props) {
   const accounts = useAccountStore((s) => s.accounts);
   const [budgetStr, setBudgetStr] = useState(budgetInYuan !== null ? String(budgetInYuan) : '');
@@ -83,6 +84,17 @@ export default function SettingsView({
                 <option key={a.id} value={a.id}>{a.icon ?? ''} {a.name}</option>
               ))}
             </select>
+          </div>
+        </Section>
+
+        {/* 固定收支 */}
+        <Section>
+          <div style={{ ...rowStyle, cursor: 'pointer' }} onClick={onOpenRecurring}>
+            <div style={{ flex: 1 }}>
+              <div style={titleStyle}>固定收支</div>
+              <div style={descStyle}>设置每日/每周/每月/每年的固定收入或支出</div>
+            </div>
+            <ArrowLeft size={14} color="#D1D1D6" style={{ transform: 'rotate(180deg)' }} />
           </div>
         </Section>
 

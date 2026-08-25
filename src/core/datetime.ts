@@ -10,16 +10,26 @@ export function nowUTC(): UTCDateTime {
   return new Date().toISOString();
 }
 
-/** 获取今天的 UTC 日期字符串 (YYYY-MM-DD) */
-export function todayUTC(): string {
+/** 获取今天的本地日期字符串 (YYYY-MM-DD) — 记账用 */
+export function todayLocal(): string {
   const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** 获取当前 UTC 时间字符串 (HH:mm:ss) */
-export function nowTimeUTC(): string {
+/** 获取当前本地时间字符串 (HH:mm:ss) — 记账用 */
+export function nowTimeLocal(): string {
   const d = new Date();
-  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')}`;
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+}
+
+/** 获取今天的 UTC 日期字符串 (YYYY-MM-DD) — 已弃用，请用 todayLocal */
+export function todayUTC(): string {
+  return todayLocal();
+}
+
+/** 获取当前 UTC 时间字符串 (HH:mm:ss) — 已弃用，请用 nowTimeLocal */
+export function nowTimeUTC(): string {
+  return nowTimeLocal();
 }
 
 /** 将 ISO 8601 UTC 字符串转为本地日期展示 */

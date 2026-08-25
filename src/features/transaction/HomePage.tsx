@@ -8,6 +8,7 @@ import TransactionList from './TransactionList';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
+import { todayLocal } from '@/core/datetime';
 
 export default function HomePage({ defAccountId }: { defAccountId?: string | null }) {
   const loadCategories = useCategoryStore((s) => s.loadCategories);
@@ -107,7 +108,7 @@ function AssetsBar({ accounts, transactions }: {
 }
 
 function TodayBar({ transactions }: { transactions: { type: string; amount: number; date: string }[] }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const todayTxs = transactions.filter((t) => t.date === today);
   if (todayTxs.length === 0) return null;
   const expense = todayTxs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);

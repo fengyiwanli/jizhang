@@ -8,7 +8,8 @@ import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
 import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
 import { useToast } from '@/shared/hooks/useToast';
-import { Zap, Trash2 } from 'lucide-react';
+import { todayLocal } from '@/core/datetime';
+import { Zap, Trash2, ArrowLeftRight } from 'lucide-react';
 
 export default function TransactionList() {
   const transactions = useTransactionStore((s) => s.transactions);
@@ -61,7 +62,7 @@ export default function TransactionList() {
     );
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
 
   return (
     <>
@@ -96,9 +97,11 @@ export default function TransactionList() {
                     const fmt = formatTransaction(tx);
                     const cat = categories.find((c) => c.id === tx.categoryId);
                     const acc = accounts.find((a) => a.id === tx.accountId);
+                    const toAcc = accounts.find((a) => a.id === tx.toAccountId);
                     const isExpense = tx.type === 'expense';
-                    const color = cat?.color ?? getCategoryColor(cat?.name ?? '');
-                    const IconComp = getCategoryIcon(cat?.name ?? '') ?? Zap;
+                    const isTransfer = tx.type === 'transfer';
+                    const color = isTransfer ? '#6C7AE0' : (cat?.color ?? getCategoryColor(cat?.name ?? ''));
+                    const IconComp = isTransfer ? ArrowLeftRight : (getCategoryIcon(cat?.name ?? '') ?? Zap);
 
                     return (
                       <div
@@ -135,8 +138,9 @@ export default function TransactionList() {
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               letterSpacing: 0.2,
                             }}>
-                              {acc ? `${acc.icon ?? ''}${acc.name} ` : ''}
-                              {tx.note || tx.time?.slice(0, 5)}
+                              {isTransfer
+                                ? `${acc?.icon ?? ''}${acc?.name ?? ''} → ${toAcc?.icon ?? ''}${toAcc?.name ?? ''}`
+                                : `${acc ? `${acc.icon ?? ''}${acc.name} ` : ''}${tx.note || tx.time?.slice(0, 5)}`}
                             </div>
                           </div>
                         </div>
@@ -145,11 +149,11 @@ export default function TransactionList() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{
                             fontWeight: 600, fontSize: 15,
-                            color: isExpense ? '#E07B6C' : '#5FBB97',
+                            color: isTransfer ? '#6C7AE0' : isExpense ? '#E07B6C' : '#5FBB97',
                             fontVariantNumeric: 'tabular-nums',
                             whiteSpace: 'nowrap', letterSpacing: -0.2,
                           }}>
-                            {isExpense ? '-' : '+'}¥{(tx.amount / 100).toFixed(2)}
+                            {isTransfer ? '' : isExpense ? '-' : '+'}¥{(tx.amount / 100).toFixed(2)}
                           </span>
                           <button
                             onClick={(e) => { e.stopPropagation(); showConfirm(tx.id); }}
@@ -234,7 +238,10 @@ function fmtDate(dateStr: string, today: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
   if (dateStr === today) return '今天';
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const yesterday = (() => {
+    const d = new Date(Date.now() - 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
   if (dateStr === yesterday) return '昨天';
   return `${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
 }

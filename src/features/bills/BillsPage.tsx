@@ -10,6 +10,7 @@ import { formatTransaction } from '@/data/repositories/TransactionRepository';
 import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
 import { MoneyUtils } from '@/core/types';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
+import { todayLocal } from '@/core/datetime';
 import type { Transaction } from '@/domain/entities/Transaction';
 import type { TransactionType } from '@/core/types';
 import type { UUID } from '@/core/types';
@@ -109,7 +110,7 @@ export default function BillsPage() {
           <input
             type="date"
             value={dateFrom}
-            max={new Date().toISOString().slice(0, 10)}
+            max={todayLocal()}
             onChange={(e) => setDateFrom(e.target.value)}
             style={dateInputStyle}
             placeholder="开始日期"
@@ -118,7 +119,7 @@ export default function BillsPage() {
           <input
             type="date"
             value={dateTo}
-            max={new Date().toISOString().slice(0, 10)}
+            max={todayLocal()}
             onChange={(e) => setDateTo(e.target.value)}
             style={dateInputStyle}
             placeholder="结束日期"
@@ -263,8 +264,11 @@ function getAcc(accounts: Account[], id: UUID): Account | undefined {
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const today = todayLocal();
+  const yesterday = (() => {
+    const d = new Date(Date.now() - 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
 
   let label = `${d.getMonth() + 1}月${d.getDate()}日`;
   if (dateStr === today) label = '今天';

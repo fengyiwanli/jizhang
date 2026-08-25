@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useAccountStore } from '@/features/account/store';
+import DataBackup from './DataBackup';
 
 interface Props {
   defaultAccountId: string | null;
@@ -95,6 +96,14 @@ export default function SettingsView({
               <div style={descStyle}>设置每日/每周/每月/每年的固定收入或支出</div>
             </div>
             <ArrowLeft size={14} color="#D1D1D6" style={{ transform: 'rotate(180deg)' }} />
+          </div>
+        </Section>
+
+        {/* 备份与恢复 */}
+        <Section>
+          <div style={titleStyle}>备份与恢复</div>
+          <div style={{ marginTop: 8 }}>
+            <DataBackup />
           </div>
         </Section>
 

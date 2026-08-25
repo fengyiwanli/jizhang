@@ -154,6 +154,9 @@ export class SqlJsAdapter implements DatabaseAdapter {
       locateFile: () => '/sql-wasm.wasm',
     });
     this.db = new this.sqlJs.Database(new Uint8Array(buffer));
+    // 补齐缺失的表/索引（CREATE IF NOT EXISTS 幂等，不影响已有数据）
+    // 旧版本数据库缺 recurring_rules 表，这里补建
+    this.db.run(SCHEMA_SQL);
   }
 
   /**

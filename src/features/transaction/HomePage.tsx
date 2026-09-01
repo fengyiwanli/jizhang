@@ -20,7 +20,7 @@ export default function HomePage({ defAccountId }: { defAccountId?: string | nul
   useEffect(() => {
     loadCategories();
     loadAccounts();
-    loadTransactions(200);
+    loadTransactions(10000);
   }, []);
 
   return (

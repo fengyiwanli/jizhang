@@ -25,6 +25,8 @@ export default function BillsPage() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
   // 筛选
   const [keyword, setKeyword] = useState('');
@@ -35,9 +37,10 @@ export default function BillsPage() {
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (reset = false) => {
     setLoading(true);
     const { transactionRepo } = getAppContext();
+    const nextOffset = reset ? 0 : offset;
     const txs = await transactionRepo.list({
       ledgerId: DEFAULT_LEDGER_ID,
       type: typeFilter === 'all' ? undefined : typeFilter,
@@ -47,12 +50,15 @@ export default function BillsPage() {
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       limit: PAGE_SIZE,
+      offset: nextOffset,
     });
-    setTransactions(txs);
+    setTransactions((prev) => (reset ? txs : [...prev, ...txs]));
+    setHasMore(txs.length === PAGE_SIZE);
+    setOffset(nextOffset + txs.length);
     setLoading(false);
-  }, [keyword, typeFilter, catFilter, accFilter, dateFrom, dateTo]);
+  }, [keyword, typeFilter, catFilter, accFilter, dateFrom, dateTo, offset]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(true); }, [load]);
 
   // 按日期分组
   const grouped = transactions.reduce<Record<string, Transaction[]>>((acc, tx) => {
@@ -184,6 +190,22 @@ export default function BillsPage() {
           </div>
         );
       })}
+
+      {/* 加载更多 */}
+      {hasMore && !loading && (
+        <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
+          <button
+            onClick={() => load(false)}
+            style={{
+              padding: '10px 32px', border: '1px solid #E0E0E0', borderRadius: 20,
+              background: '#FFF', color: '#1A1A2E', fontSize: 13, cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            加载更多
+          </button>
+        </div>
+      )}
     </div>
   );
 }

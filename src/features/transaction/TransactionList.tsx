@@ -69,7 +69,6 @@ export default function TransactionList() {
       <div>
         {Object.entries(grouped)
           .sort(([a], [b]) => b.localeCompare(a))
-          .filter(([date]) => date === today)
           .map(([date, txs]) => {
             const dayExpense = txs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
             const dayIncome = txs.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);

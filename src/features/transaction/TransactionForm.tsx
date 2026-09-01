@@ -19,6 +19,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const categories = useCategoryStore((s) => s.categories);
   const accounts = useAccountStore((s) => s.accounts);
   const createTransaction = useTransactionStore((s) => s.createTransaction);
+  const transactions = useTransactionStore((s) => s.transactions);
 
   const [type, setType] = useState<TransactionType>('expense');
   const [amountStr, setAmountStr] = useState('');
@@ -30,11 +31,26 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const [dateStr, setDateStr] = useState(todayLocal());
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [pickerTarget, setPickerTarget] = useState<'from' | 'to' | null>(null);
 
   const amountRef = useRef<HTMLInputElement>(null);
   const amountYuan = parseFloat(amountStr) || 0;
   const typeCategories = categories.filter((c) => c.type === type);
   const accentColor = type === 'expense' ? '#E07B6C' : type === 'income' ? '#5FBB97' : '#6C7AE0';
+
+  function accountBalance(accId: string): number {
+    const acc = accounts.find((a) => a.id === accId);
+    let b = acc?.initialBalance ?? 0;
+    for (const tx of transactions) {
+      if (tx.type === 'income' && tx.accountId === accId) b += tx.amount;
+      if (tx.type === 'expense' && tx.accountId === accId) b -= tx.amount;
+      if (tx.type === 'transfer') {
+        if (tx.accountId === accId) b -= tx.amount;
+        if (tx.toAccountId === accId) b += tx.amount;
+      }
+    }
+    return b;
+  }
 
   function handleAmountChange(raw: string) {
     let v = raw.replace(/[^\d.]/g, '');
@@ -203,37 +219,22 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
             转账账户
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* 转出 */}
-            <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-              <select
-                value={accountId || (accounts[0]?.id ?? '')}
-                onChange={(e) => setAccountId(e.target.value)}
-                style={transferSelectStyle}
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>{a.icon ?? ''} {a.name}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} color="#8E8E93" style={chevronStyle} />
-              <div style={{ fontSize: 10, color: '#B0B0B0', marginTop: 6, textAlign: 'center' }}>转出</div>
-            </div>
-            {/* 箭头 */}
-            <ArrowDown size={18} color="#6C7AE0" style={{ flexShrink: 0, marginTop: -12 }} />
-            {/* 转入 */}
-            <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-              <select
-                value={toAccountId}
-                onChange={(e) => setToAccountId(e.target.value)}
-                style={transferSelectStyle}
-              >
-                <option value="">选择账户</option>
-                {accounts.filter((a) => a.id !== (accountId || accounts[0]?.id)).map((a) => (
-                  <option key={a.id} value={a.id}>{a.icon ?? ''} {a.name}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} color="#8E8E93" style={chevronStyle} />
-              <div style={{ fontSize: 10, color: '#B0B0B0', marginTop: 6, textAlign: 'center' }}>转入</div>
-            </div>
+            {/* 转出卡片 */}
+            <AccountCard
+              account={accounts.find((a) => a.id === (accountId || accounts[0]?.id))}
+              label="转出"
+              balance={accountBalance(accountId || accounts[0]?.id || '')}
+              onClick={() => setPickerTarget('from')}
+            />
+            <ArrowDown size={18} color="#6C7AE0" style={{ flexShrink: 0 }} />
+            {/* 转入卡片 */}
+            <AccountCard
+              account={accounts.find((a) => a.id === toAccountId)}
+              label="转入"
+              balance={toAccountId ? accountBalance(toAccountId) : null}
+              onClick={() => setPickerTarget('to')}
+              placeholder="选择账户"
+            />
           </div>
         </div>
       ) : (
@@ -372,30 +373,84 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
           {saving ? '...' : '保存'}
         </button>
       </div>
+
+      {/* 账户选择弹层（转账） */}
+      {pickerTarget && (
+        <AccountPicker
+          accounts={pickerTarget === 'to' ? accounts.filter((a) => a.id !== (accountId || accounts[0]?.id)) : accounts}
+          onSelect={(id) => {
+            if (pickerTarget === 'from') setAccountId(id);
+            else setToAccountId(id);
+            setPickerTarget(null);
+          }}
+          onClose={() => setPickerTarget(null)}
+        />
+      )}
     </div>
   );
 }
 
-const transferSelectStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '12px 26px 12px 10px',
-  border: '1px solid #E8E8ED',
-  borderRadius: 12,
-  background: '#F5F5F7',
-  fontSize: 13,
-  color: '#1A1A2E',
-  outline: 'none',
-  appearance: 'none',
-  cursor: 'pointer',
-  fontWeight: 500,
-  textOverflow: 'ellipsis',
-  overflow: 'hidden',
-  whiteSpace: 'nowrap',
-};
+function AccountCard({ account, label, balance, onClick, placeholder }: {
+  account: { id: string; name: string; icon: string | null } | undefined;
+  label: string;
+  balance: number | null;
+  onClick: () => void;
+  placeholder?: string;
+}) {
+  return (
+    <button onClick={onClick} style={{
+      flex: 1, minWidth: 0, border: '1px solid #E8E8ED', borderRadius: 14,
+      background: '#F5F5F7', padding: '14px 12px', cursor: 'pointer',
+      textAlign: 'left', fontFamily: 'inherit',
+    }}>
+      <div style={{ fontSize: 10, color: '#B0B0B0', marginBottom: 6 }}>{label}</div>
+      {account ? (
+        <>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {account.icon ?? ''} {account.name}
+          </div>
+          {balance !== null && (
+            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              ¥{(balance / 100).toFixed(2)}
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ fontSize: 14, color: '#C0C0C0' }}>{placeholder ?? '选择账户'}</div>
+      )}
+    </button>
+  );
+}
 
-const chevronStyle: React.CSSProperties = {
-  position: 'absolute', right: 8, top: 14, pointerEvents: 'none',
-};
+function AccountPicker({ accounts, onSelect, onClose }: {
+  accounts: { id: string; name: string; icon: string | null }[];
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.35)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: '#FFF', borderRadius: '20px 20px 0 0', width: '100%',
+        maxWidth: 500, maxHeight: '70vh', overflowY: 'auto', padding: '16px 16px 28px',
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1A2E', marginBottom: 12 }}>选择账户</div>
+        {accounts.map((a) => (
+          <button key={a.id} onClick={() => onSelect(a.id)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 12px',
+            border: 'none', borderBottom: '1px solid #F5F5F7', background: 'transparent',
+            cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+          }}>
+            <span style={{ fontSize: 20 }}>{a.icon ?? '💳'}</span>
+            <span style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E', flex: 1 }}>{a.name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SegBtn({ active, onClick, children }: {
   active: boolean; onClick: () => void; children: React.ReactNode;

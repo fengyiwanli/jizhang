@@ -11,10 +11,15 @@ import { getAppContext } from '@/data/init';
 import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
 import type { MonthlySummary, CategoryStat, DailyTrend } from '@/data/repositories/StatsRepository';
 import { MoneyUtils } from '@/core/types';
+import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
+
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export default function StatsPage({ onDayClick }: { onDayClick: (date: string) => void }) {
-  // 视图模式: month / year
-  const [view, setView] = useState<'month' | 'year'>('month');
+  // 视图模式: month / week / year / custom
+  const [view, setView] = useState<'month' | 'week' | 'year' | 'custom'>('month');
   const [yearMonth, setYearMonth] = useState(getCurrentYM());
   const [year, setYear] = useState(String(new Date().getFullYear()));
 
@@ -30,6 +35,17 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
   const [yearlyTrend, setYearlyTrend] = useState<Array<{ month: string; totalExpense: number; totalIncome: number }>>([]);
   const [yearlyExpense, setYearlyExpense] = useState<CategoryStat[]>([]);
 
+  // 周数据
+  const [weekData, setWeekData] = useState<{
+    thisWeekExpense: number; thisWeekIncome: number;
+    lastWeekExpense: number; lastWeekIncome: number; avgDaily: number;
+  } | null>(null);
+
+  // 自定义时间
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [customData, setCustomData] = useState<{ expense: number; income: number; count: number } | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   const expensePieRef = useRef<HTMLDivElement>(null);
@@ -38,8 +54,11 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
   const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    view === 'month' ? loadMonthData() : loadYearData();
-  }, [yearMonth, year, view]);
+    if (view === 'month') loadMonthData();
+    else if (view === 'year') loadYearData();
+    else if (view === 'week') loadWeekData();
+    else loadCustomData();
+  }, [yearMonth, year, view, customFrom, customTo]);
 
   async function loadMonthData() {
     setLoading(true);
@@ -70,6 +89,46 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
     setYearSummary(s);
     setYearlyTrend(trend);
     setYearlyExpense(exp);
+    setLoading(false);
+  }
+
+  async function loadWeekData() {
+    setLoading(true);
+    const { transactionRepo } = getAppContext();
+    const today = new Date();
+    const day = today.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
+    const lastMonday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7);
+    const lastSunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 1);
+
+    const thisWeek = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: fmtDate(monday), dateTo: fmtDate(today), limit: 10000 });
+    const lastWeek = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: fmtDate(lastMonday), dateTo: fmtDate(lastSunday), limit: 10000 });
+
+    const sum = (txs: { type: string; amount: number }[], t: string) => txs.filter((x) => x.type === t).reduce((s, x) => s + x.amount, 0);
+    const thisWeekExpense = sum(thisWeek, 'expense');
+    const thisWeekIncome = sum(thisWeek, 'income');
+    const lastWeekExpense = sum(lastWeek, 'expense');
+    const lastWeekIncome = sum(lastWeek, 'income');
+    const daysPassed = Math.max(1, Math.floor((today.getTime() - monday.getTime()) / 86400000) + 1);
+    const avgDaily = thisWeekExpense / daysPassed;
+
+    setWeekData({ thisWeekExpense, thisWeekIncome, lastWeekExpense, lastWeekIncome, avgDaily });
+    setLoading(false);
+  }
+
+  async function loadCustomData() {
+    if (!customFrom || !customTo) {
+      setCustomData(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const { transactionRepo } = getAppContext();
+    const txs = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: customFrom, dateTo: customTo, limit: 10000 });
+    const expense = txs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const income = txs.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    setCustomData({ expense, income, count: txs.length });
     setLoading(false);
   }
 
@@ -157,7 +216,7 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
       const d = new Date(y!, m! - 1);
       d.setMonth(d.getMonth() + delta);
       setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-    } else {
+    } else if (view === 'year') {
       setYear(String(Number(year) + delta));
     }
   };
@@ -169,27 +228,78 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
       {/* 视图切换 + 时间选择 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', background: '#F5F5F7', borderRadius: 10, padding: 3 }}>
-          {(['month', 'year'] as const).map((v) => (
+          {([
+            { v: 'month', label: '月' },
+            { v: 'week', label: '周' },
+            { v: 'year', label: '年' },
+            { v: 'custom', label: '自定义' },
+          ] as const).map(({ v, label }) => (
             <button key={v} onClick={() => setView(v)} style={{
-              padding: '8px 18px', border: 'none', borderRadius: 8,
+              padding: '8px 12px', border: 'none', borderRadius: 8,
               background: view === v ? '#FFF' : 'transparent',
               fontWeight: view === v ? 600 : 400, fontSize: 13,
               color: view === v ? '#1A1A2E' : '#8E8E93',
               cursor: 'pointer', boxShadow: view === v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               transition: 'all 200ms', fontFamily: 'inherit',
             }}>
-              {v === 'month' ? '月' : '年'}
+              {label}
             </button>
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => change(-1)} style={navBtn}>{'‹'}</button>
-          <span style={{ fontWeight: 700, fontSize: 16, color: '#1A1A2E', minWidth: 80, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {view === 'month' ? yearMonth.replace('-', '年') + '月' : year + '年'}
-          </span>
-          <button onClick={() => change(1)} style={navBtn}>{'›'}</button>
+          {(view === 'month' || view === 'year') && (
+            <>
+              <button onClick={() => change(-1)} style={navBtn}>{'‹'}</button>
+              <span style={{ fontWeight: 700, fontSize: 16, color: '#1A1A2E', minWidth: 80, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {view === 'month' ? yearMonth.replace('-', '年') + '月' : year + '年'}
+              </span>
+              <button onClick={() => change(1)} style={navBtn}>{'›'}</button>
+            </>
+          )}
+          {view === 'week' && <span style={{ fontWeight: 700, fontSize: 15, color: '#1A1A2E' }}>本周</span>}
         </div>
       </div>
+
+      {/* 自定义时间范围选择 */}
+      {view === 'custom' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, background: '#FFF', borderRadius: 12, padding: '10px 12px' }}>
+          <input type="date" value={customFrom} max={customTo || undefined} onChange={(e) => setCustomFrom(e.target.value)} style={{ flex: 1, border: 'none', background: '#F5F5F7', borderRadius: 8, padding: '8px', fontSize: 13, color: '#1A1A2E', fontFamily: 'inherit' }} />
+          <span style={{ fontSize: 12, color: '#8E8E93' }}>至</span>
+          <input type="date" value={customTo} min={customFrom || undefined} onChange={(e) => setCustomTo(e.target.value)} style={{ flex: 1, border: 'none', background: '#F5F5F7', borderRadius: 8, padding: '8px', fontSize: 13, color: '#1A1A2E', fontFamily: 'inherit' }} />
+        </div>
+      )}
+
+      {/* 周视图 */}
+      {view === 'week' && weekData && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+            <Card label="本周支出" value={MoneyUtils.format(weekData.thisWeekExpense)} color="#FF6B6B" />
+            <Card label="本周收入" value={MoneyUtils.format(weekData.thisWeekIncome)} color="#2ECC71" />
+            <Card label="日均支出" value={MoneyUtils.format(Math.round(weekData.avgDaily))} color="#4ECDC4" />
+          </div>
+          <WeekCompare
+            thisWeekExpense={weekData.thisWeekExpense}
+            lastWeekExpense={weekData.lastWeekExpense}
+            thisWeekIncome={weekData.thisWeekIncome}
+            lastWeekIncome={weekData.lastWeekIncome}
+          />
+        </>
+      )}
+
+      {/* 自定义视图 */}
+      {view === 'custom' && customData && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+          <Card label="支出" value={MoneyUtils.format(customData.expense)} color="#FF6B6B" />
+          <Card label="收入" value={MoneyUtils.format(customData.income)} color="#2ECC71" />
+          <Card label="结余" value={MoneyUtils.format(customData.income - customData.expense)} color={customData.income >= customData.expense ? '#4ECDC4' : '#E07B6C'} />
+        </div>
+      )}
+      {view === 'custom' && !customData && !loading && (
+        <div style={{ textAlign: 'center', padding: 40, color: '#8E8E93' }}>
+          <div style={{ fontSize: 36 }}>📅</div>
+          <div style={{ marginTop: 8, fontSize: 13 }}>选择起止日期查看统计</div>
+        </div>
+      )}
 
       {/* 通用总览卡 */}
       {view === 'month' && summary && (
@@ -282,6 +392,37 @@ function Card({ label, value, color }: { label: string; value: string; color: st
     <div style={{ padding: '12px 6px', background: '#FFF', borderRadius: 12, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${color}`, overflow: 'hidden' }}>
       <div style={{ fontSize: 11, color: '#8E8E93' }}>{label}</div>
       <div style={{ fontSize: 15, fontWeight: 700, color, marginTop: 4, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+    </div>
+  );
+}
+
+function WeekCompare({ thisWeekExpense, lastWeekExpense, thisWeekIncome, lastWeekIncome }: {
+  thisWeekExpense: number; lastWeekExpense: number;
+  thisWeekIncome: number; lastWeekIncome: number;
+}) {
+  const expenseDiff = thisWeekExpense - lastWeekExpense;
+  const expensePct = lastWeekExpense > 0 ? Math.round((expenseDiff / lastWeekExpense) * 100) : 0;
+  const incomeDiff = thisWeekIncome - lastWeekIncome;
+  const incomePct = lastWeekIncome > 0 ? Math.round((incomeDiff / lastWeekIncome) * 100) : 0;
+  const diffColor = (v: number) => (v > 0 ? '#E07B6C' : v < 0 ? '#5FBB97' : '#8E8E93');
+
+  return (
+    <div style={{ background: '#FFF', borderRadius: 16, padding: '14px 16px', marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#1A1A2E', marginBottom: 10 }}>环比上周</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#8E8E93' }}>支出</div>
+          <div style={{ fontSize: 13, marginTop: 2, color: diffColor(expenseDiff), fontWeight: 600 }}>
+            {expenseDiff > 0 ? '+' : ''}{expenseDiff === 0 ? '持平' : `${MoneyUtils.format(expenseDiff).replace('¥', '')} (${expenseDiff > 0 ? '+' : ''}${expensePct}%)`}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: '#8E8E93' }}>收入</div>
+          <div style={{ fontSize: 13, marginTop: 2, color: diffColor(incomeDiff), fontWeight: 600 }}>
+            {incomeDiff > 0 ? '+' : ''}{incomeDiff === 0 ? '持平' : `${MoneyUtils.format(incomeDiff).replace('¥', '')} (${incomeDiff > 0 ? '+' : ''}${incomePct}%)`}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

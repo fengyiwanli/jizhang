@@ -23,6 +23,7 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
   const [expenseStats, setExpenseStats] = useState<CategoryStat[]>([]);
   const [incomeStats, setIncomeStats] = useState<CategoryStat[]>([]);
   const [dailyTrend, setDailyTrend] = useState<DailyTrend[]>([]);
+  const [budget, setBudget] = useState<number | null>(null);
 
   // 年数据
   const [yearSummary, setYearSummary] = useState<MonthlySummary | null>(null);
@@ -42,17 +43,19 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
 
   async function loadMonthData() {
     setLoading(true);
-    const { statsRepo } = getAppContext();
-    const [s, exp, inc, trend] = await Promise.all([
+    const { statsRepo, budgetRepo } = getAppContext();
+    const [s, exp, inc, trend, budgetAmount] = await Promise.all([
       statsRepo.getMonthlySummary(yearMonth),
       statsRepo.getCategoryStats(yearMonth, 'expense'),
       statsRepo.getCategoryStats(yearMonth, 'income'),
       statsRepo.getDailyTrend(yearMonth),
+      budgetRepo.getTotalBudget(yearMonth),
     ]);
     setSummary(s);
     setExpenseStats(exp);
     setIncomeStats(inc);
     setDailyTrend(trend);
+    setBudget(budgetAmount !== null ? budgetAmount / 100 : null);
     setLoading(false);
   }
 
@@ -190,11 +193,17 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
 
       {/* 通用总览卡 */}
       {view === 'month' && summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
-          <Card label="支出" value={MoneyUtils.format(summary.totalExpense)} color="#FF6B6B" />
-          <Card label="收入" value={MoneyUtils.format(summary.totalIncome)} color="#2ECC71" />
-          <Card label="结余" value={MoneyUtils.format(summary.totalIncome - summary.totalExpense)} color={summary.totalIncome >= summary.totalExpense ? '#4ECDC4' : '#E07B6C'} />
-        </div>
+        <>
+          {/* 预算 vs 实际 */}
+          {budget !== null && budget > 0 && (
+            <BudgetCompare spent={summary.totalExpense} budget={Math.round(budget * 100)} />
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+            <Card label="支出" value={MoneyUtils.format(summary.totalExpense)} color="#FF6B6B" />
+            <Card label="收入" value={MoneyUtils.format(summary.totalIncome)} color="#2ECC71" />
+            <Card label="结余" value={MoneyUtils.format(summary.totalIncome - summary.totalExpense)} color={summary.totalIncome >= summary.totalExpense ? '#4ECDC4' : '#E07B6C'} />
+          </div>
+        </>
       )}
 
       {view === 'year' && yearSummary && (
@@ -273,6 +282,30 @@ function Card({ label, value, color }: { label: string; value: string; color: st
     <div style={{ padding: '12px 6px', background: '#FFF', borderRadius: 12, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${color}`, overflow: 'hidden' }}>
       <div style={{ fontSize: 11, color: '#8E8E93' }}>{label}</div>
       <div style={{ fontSize: 15, fontWeight: 700, color, marginTop: 4, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+    </div>
+  );
+}
+
+function BudgetCompare({ spent, budget }: { spent: number; budget: number }) {
+  const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+  const remain = budget - spent;
+  const color = pct < 80 ? '#4ECDC4' : pct <= 100 ? '#FF9F43' : '#E07B6C';
+  const overSpent = remain < 0;
+  return (
+    <div style={{ background: '#FFF', borderRadius: 16, padding: '12px 14px', marginBottom: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A2E' }}>本月预算 vs 实际</span>
+        <span style={{ fontSize: 12, color }}>{pct}%</span>
+      </div>
+      <div style={{ height: 8, borderRadius: 4, background: '#F0F0F2', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 4, transition: 'width 300ms ease' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
+        <span style={{ color: '#8E8E93' }}>支出 <span style={{ color: color, fontWeight: 600 }}>¥{(spent / 100).toFixed(2)}</span> / ¥{(budget / 100).toFixed(2)}</span>
+        <span style={{ color: overSpent ? '#E07B6C' : '#8E8E93', fontWeight: overSpent ? 600 : 400 }}>
+          {overSpent ? `超支 ¥${(-remain / 100).toFixed(2)}` : `剩余 ¥${(remain / 100).toFixed(2)}`}
+        </span>
+      </div>
     </div>
   );
 }

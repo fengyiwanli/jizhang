@@ -1,9 +1,12 @@
 /**
  * 设置页面 — 独立全屏页面
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useAccountStore } from '@/features/account/store';
+import { useCategoryStore } from '@/features/category/store';
+import { getAppContext } from '@/data/init';
+import { todayLocal } from '@/core/datetime';
 import DataBackup from './DataBackup';
 
 interface Props {
@@ -22,8 +25,31 @@ export default function SettingsView({
   onClearData, onOpenRecurring, onBack,
 }: Props) {
   const accounts = useAccountStore((s) => s.accounts);
+  const categories = useCategoryStore((s) => s.categories);
   const [budgetStr, setBudgetStr] = useState(budgetInYuan !== null ? String(budgetInYuan) : '');
   const [showClear, setShowClear] = useState(false);
+  const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
+
+  const expenseRoots = categories.filter((c) => c.type === 'expense' && !c.parentId);
+  const ym = todayLocal().slice(0, 7);
+
+  // 读取分类预算
+  useEffect(() => {
+    const { budgetRepo } = getAppContext();
+    budgetRepo.listCategoryBudgets(ym).then((list) => {
+      const map: Record<string, string> = {};
+      for (const b of list) map[b.categoryId] = String(b.amount / 100);
+      setCatBudgets(map);
+    });
+  }, [ym]);
+
+  function saveCategoryBudget(catId: string, val: string) {
+    setCatBudgets((prev) => ({ ...prev, [catId]: val }));
+    const { budgetRepo } = getAppContext();
+    const v = parseFloat(val);
+    if (!isNaN(v) && v > 0) budgetRepo.setCategoryBudget(ym, catId, v);
+    else budgetRepo.removeCategoryBudget(ym, catId);
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F5F7' }}>
@@ -66,6 +92,29 @@ export default function SettingsView({
               style={amountInputStyle}
             />
           </div>
+        </Section>
+
+        {/* 分类预算 */}
+        <Section>
+          <div style={titleStyle}>分类预算</div>
+          <div style={{ ...descStyle, marginBottom: 4 }}>为支出分类单独设预算额度（留空则不限）</div>
+          {expenseRoots.map((c) => (
+            <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+              <span style={{ fontSize: 13, color: '#1A1A2E', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{c.icon ?? '📦'}</span> {c.name}
+              </span>
+              <input
+                type="number"
+                value={catBudgets[c.id] ?? ''}
+                onChange={(e) => saveCategoryBudget(c.id, e.target.value)}
+                placeholder="不限"
+                style={{ ...amountInputStyle, width: 80 }}
+              />
+            </div>
+          ))}
+          {expenseRoots.length === 0 && (
+            <div style={{ fontSize: 12, color: '#C7C7CC', padding: '8px 0' }}>暂无支出分类</div>
+          )}
         </Section>
 
         {/* 默认账户 */}

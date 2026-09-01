@@ -11,6 +11,7 @@ import SettingsView from '@/features/settings/SettingsView';
 import RecurringManager from '@/features/settings/RecurringManager';
 import DailyDetailPage from '@/features/stats/DailyDetailPage';
 import { initializeApp, getAppContext } from '@/data/init';
+import { todayLocal } from '@/core/datetime';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) { super(props); this.state = { hasError: false, error: null }; }
@@ -30,7 +31,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-const STORAGE_KEY_BUDGET = 'bk_budget';
 const STORAGE_KEY_ACCOUNT = 'bk_default_acc';
 
 type View = { type: 'tabs'; tab: string } | { type: 'settings' } | { type: 'daily'; date: string } | { type: 'recurring' };
@@ -40,10 +40,7 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
 
-  const [budgetInYuan, setBudgetInYuan] = useState<number | null>(() => {
-    const v = localStorage.getItem(STORAGE_KEY_BUDGET);
-    return v ? parseFloat(v) : null;
-  });
+  const [budgetInYuan, setBudgetInYuan] = useState<number | null>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(() => {
     return localStorage.getItem(STORAGE_KEY_ACCOUNT) || null;
   });
@@ -52,10 +49,22 @@ export default function App() {
     initializeApp().then(() => setReady(true)).catch((e) => setInitError((e as Error).message));
   }, []);
 
+  // ready 后从 SQLite 读取当前月预算
+  useEffect(() => {
+    if (!ready) return;
+    const { budgetRepo } = getAppContext();
+    const ym = todayLocal().slice(0, 7);
+    budgetRepo.getTotalBudget(ym).then((amount) => {
+      setBudgetInYuan(amount !== null ? amount / 100 : null);
+    });
+  }, [ready]);
+
   function handleBudgetChange(v: number | null) {
     setBudgetInYuan(v);
-    if (v !== null) localStorage.setItem(STORAGE_KEY_BUDGET, String(v));
-    else localStorage.removeItem(STORAGE_KEY_BUDGET);
+    const { budgetRepo } = getAppContext();
+    const ym = todayLocal().slice(0, 7);
+    if (v !== null) budgetRepo.setTotalBudget(ym, v);
+    else budgetRepo.removeTotalBudget(ym);
   }
 
   function handleDefaultAccChange(id: string | null) {
@@ -70,6 +79,8 @@ export default function App() {
       await ctx.transactionRepo.clearAll();
       await ctx.accountRepo.clearAll();
       await ctx.categoryRepo.clearAll();
+      await ctx.db.execute('DELETE FROM recurring_rules');
+      await ctx.budgetRepo.clearAll();
       localStorage.clear();
       window.location.reload();
     } catch (e) { console.error('清除失败', e); }

@@ -115,6 +115,17 @@ CREATE TABLE IF NOT EXISTS recurring_rules (
     deleted_at  TEXT
 );
 
+-- 预算表 (总预算 + 分类预算)
+CREATE TABLE IF NOT EXISTS budgets (
+    id          TEXT PRIMARY KEY,
+    ledger_id   TEXT NOT NULL REFERENCES ledgers(id),
+    year_month  TEXT NOT NULL,
+    category_id TEXT REFERENCES categories(id),
+    amount      INTEGER NOT NULL,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions(account_id);

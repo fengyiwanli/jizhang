@@ -10,6 +10,7 @@ import { CategoryRepository } from './repositories/CategoryRepository';
 import { AccountRepository } from './repositories/AccountRepository';
 import { StatsRepository } from './repositories/StatsRepository';
 import { RecurringRepository, advanceNextRun } from './repositories/RecurringRepository';
+import { BudgetRepository } from './repositories/BudgetRepository';
 import type { TransactionRepository } from './repositories/TransactionRepository';
 import type { DatabaseAdapter } from './database/DatabaseAdapter';
 import { todayLocal } from '@/core/datetime';
@@ -21,11 +22,14 @@ export interface AppContext {
   accountRepo: AccountRepository;
   statsRepo: StatsRepository;
   recurringRepo: RecurringRepository;
+  budgetRepo: BudgetRepository;
 }
 
 let appCtx: AppContext | null = null;
 const SEED_FLAG_KEY = 'bookkeeping_seeded_v2';
 const TIME_MIGRATED_KEY = 'bookkeeping_time_migrated_v1';
+const BUDGET_MIGRATED_KEY = 'bookkeeping_budget_migrated_v1';
+const LEGACY_BUDGET_KEY = 'bk_budget';
 
 /**
  * 一次性迁移：把历史账单的 UTC 日期/时间纠正为本地时间（+8 小时）
@@ -115,8 +119,22 @@ export async function initializeApp(): Promise<AppContext> {
   const accountRepo = new AccountRepository(db);
   const statsRepo = new StatsRepository(db);
   const recurringRepo = new RecurringRepository(db);
+  const budgetRepo = new BudgetRepository(db);
 
-  appCtx = { db, transactionRepo, categoryRepo, accountRepo, statsRepo, recurringRepo };
+  appCtx = { db, transactionRepo, categoryRepo, accountRepo, statsRepo, recurringRepo, budgetRepo };
+
+  // 迁移旧的 localStorage 预算到 SQLite
+  if (!localStorage.getItem(BUDGET_MIGRATED_KEY)) {
+    const legacy = localStorage.getItem(LEGACY_BUDGET_KEY);
+    if (legacy) {
+      const v = parseFloat(legacy);
+      if (!isNaN(v) && v > 0) {
+        await budgetRepo.setTotalBudget(todayLocal().slice(0, 7), v);
+      }
+      localStorage.removeItem(LEGACY_BUDGET_KEY);
+    }
+    localStorage.setItem(BUDGET_MIGRATED_KEY, '1');
+  }
 
   // 处理到期的周期账单（自动补记）
   await processRecurring(transactionRepo, recurringRepo);

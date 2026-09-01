@@ -57,7 +57,7 @@ export class StatsRepository {
     return rows[0] ?? { totalExpense: 0, totalIncome: 0, transactionCount: 0 };
   }
 
-  /** 分类统计 */
+  /** 分类统计（子分类归并到父分类） */
   async getCategoryStats(
     yearMonth: string,
     type: 'expense' | 'income' = 'expense',
@@ -72,17 +72,18 @@ export class StatsRepository {
       count: number;
     }>(
       `SELECT
-        t.category_id as categoryId,
-        c.name as categoryName,
-        c.icon as categoryIcon,
-        c.color as categoryColor,
+        COALESCE(pc.id, c.id) as categoryId,
+        COALESCE(pc.name, c.name) as categoryName,
+        COALESCE(pc.icon, c.icon) as categoryIcon,
+        COALESCE(pc.color, c.color) as categoryColor,
         SUM(t.amount) as amount,
         COUNT(*) as count
       FROM transactions t
       LEFT JOIN categories c ON t.category_id = c.id
+      LEFT JOIN categories pc ON c.parent_id = pc.id
       WHERE t.ledger_id = ? AND t.date LIKE ? AND t.type = ? AND t.deleted_at IS NULL
         AND t.category_id IS NOT NULL
-      GROUP BY t.category_id
+      GROUP BY COALESCE(pc.id, c.id)
       ORDER BY amount DESC`,
       [ledgerId, `${yearMonth}%`, type],
     );
@@ -207,17 +208,18 @@ export class StatsRepository {
       count: number;
     }>(
       `SELECT
-        t.category_id as categoryId,
-        c.name as categoryName,
-        c.icon as categoryIcon,
-        c.color as categoryColor,
+        COALESCE(pc.id, c.id) as categoryId,
+        COALESCE(pc.name, c.name) as categoryName,
+        COALESCE(pc.icon, c.icon) as categoryIcon,
+        COALESCE(pc.color, c.color) as categoryColor,
         SUM(t.amount) as amount,
         COUNT(*) as count
       FROM transactions t
       LEFT JOIN categories c ON t.category_id = c.id
+      LEFT JOIN categories pc ON c.parent_id = pc.id
       WHERE t.ledger_id = ? AND t.date LIKE ? AND t.type = ? AND t.deleted_at IS NULL
         AND t.category_id IS NOT NULL
-      GROUP BY t.category_id
+      GROUP BY COALESCE(pc.id, c.id)
       ORDER BY amount DESC`,
       [ledgerId, `${year}%`, type],
     );

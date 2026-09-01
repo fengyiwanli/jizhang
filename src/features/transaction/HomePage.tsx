@@ -1,7 +1,7 @@
 /**
  * 首页 — 现代极简风格
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Banknote, Building2, CreditCard, Smartphone } from 'lucide-react';
 import TransactionForm from './TransactionForm';
 import TransactionList from './TransactionList';
@@ -9,6 +9,7 @@ import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
 import { todayLocal } from '@/core/datetime';
+import { getAppContext } from '@/data/init';
 
 export default function HomePage({ defAccountId }: { defAccountId?: string | null }) {
   const loadCategories = useCategoryStore((s) => s.loadCategories);
@@ -17,16 +18,26 @@ export default function HomePage({ defAccountId }: { defAccountId?: string | nul
   const transactions = useTransactionStore((s) => s.transactions);
   const accounts = useAccountStore((s) => s.accounts);
 
+  const [budgetInYuan, setBudgetInYuan] = useState<number | null>(null);
+
   useEffect(() => {
     loadCategories();
     loadAccounts();
     loadTransactions(10000);
+    // 读取本月预算
+    const ym = todayLocal().slice(0, 7);
+    getAppContext().budgetRepo.getTotalBudget(ym).then((amount) => {
+      setBudgetInYuan(amount !== null ? amount / 100 : null);
+    });
   }, []);
 
   return (
     <div style={{ paddingBottom: 80 }}>
       {/* 资产总览 */}
       <AssetsBar accounts={accounts} transactions={transactions} />
+
+      {/* 本月预算进度 */}
+      <BudgetBar transactions={transactions} budgetInYuan={budgetInYuan} />
 
       {/* 记账表单卡片 */}
       <div style={{
@@ -102,6 +113,53 @@ function AssetsBar({ accounts, transactions }: {
           </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function BudgetBar({ transactions, budgetInYuan }: {
+  transactions: { type: string; amount: number; date: string }[];
+  budgetInYuan: number | null;
+}) {
+  if (budgetInYuan === null || budgetInYuan <= 0) return null;
+
+  const ym = todayLocal().slice(0, 7);
+  const spent = transactions
+    .filter((t) => t.type === 'expense' && t.date.startsWith(ym))
+    .reduce((s, t) => s + t.amount, 0);
+  const budget = Math.round(budgetInYuan * 100);
+  const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+  const remain = budget - spent;
+  const color = pct < 80 ? '#4ECDC4' : pct <= 100 ? '#FF9F43' : '#E07B6C';
+  const overSpent = remain < 0;
+
+  return (
+    <div style={{
+      margin: '10px 16px 0', padding: '14px 20px',
+      background: '#FFF', borderRadius: 16,
+      boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A2E' }}>本月预算</span>
+        <span style={{ fontSize: 12, color: '#8E8E93' }}>{pct}%</span>
+      </div>
+      {/* 进度条 */}
+      <div style={{ height: 8, borderRadius: 4, background: '#F0F0F2', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', borderRadius: 4,
+          width: `${Math.min(pct, 100)}%`,
+          background: color,
+          transition: 'width 300ms ease, background 300ms ease',
+        }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+        <span style={{ fontSize: 12, color: '#8E8E93' }}>
+          已用 <span style={{ color: color, fontWeight: 600 }}>¥{(spent / 100).toFixed(2)}</span> / ¥{(budget / 100).toFixed(2)}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: overSpent ? '#E07B6C' : '#8E8E93' }}>
+          {overSpent ? `已超支 ¥${(-remain / 100).toFixed(2)}` : `剩余 ¥${(remain / 100).toFixed(2)}`}
+        </span>
       </div>
     </div>
   );

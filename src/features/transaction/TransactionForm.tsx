@@ -27,10 +27,11 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const [toAccountId, setToAccountId] = useState<UUID>('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [dateStr, setDateStr] = useState(todayLocal());
 
   const amountRef = useRef<HTMLInputElement>(null);
   const amountYuan = parseFloat(amountStr) || 0;
-  const typeCategories = categories.filter((c) => c.type === type && !c.parentId);
+  const typeCategories = categories.filter((c) => c.type === type);
   const accentColor = type === 'expense' ? '#E07B6C' : type === 'income' ? '#5FBB97' : '#6C7AE0';
 
   function handleAmountChange(raw: string) {
@@ -55,11 +56,12 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
       await createTransaction({
         type, amountInYuan: amountYuan, accountId: accId, categoryId: type === 'transfer' ? null : categoryId,
         toAccountId: type === 'transfer' ? toAccountId : null,
-        date: todayLocal(), time: nowTimeLocal(),
+        date: dateStr, time: nowTimeLocal(),
         note: note.trim() || undefined,
       });
       setAmountStr('');
       setNote('');
+      setDateStr(todayLocal());
       if (type === 'transfer') setToAccountId('');
     } catch {
       useToast.getState().error('保存失败，请重试');
@@ -74,8 +76,9 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
       })()
     : '';
 
-  const today = new Date();
+  const dateObj = new Date(dateStr + 'T00:00:00');
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+  const isToday = dateStr === todayLocal();
 
   return (
     <div style={{ background: '#FFF', borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
@@ -84,13 +87,28 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '24px 24px 0',
       }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#1A1A2E', letterSpacing: -0.3 }}>
-            {`${today.getMonth() + 1}月${today.getDate()}日`}
+        <div style={{ position: 'relative', cursor: 'pointer' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#1A1A2E', letterSpacing: -0.3, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {`${dateObj.getMonth() + 1}月${dateObj.getDate()}日`}
+            {!isToday && (
+              <span style={{ fontSize: 11, fontWeight: 500, color: '#4ECDC4', background: '#E8F8F5', padding: '2px 6px', borderRadius: 6 }}>
+                补记
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>
-            星期{weekdays[today.getDay()]}
+            星期{weekdays[dateObj.getDay()]}
           </div>
+          {/* 透明日期选择器覆盖 */}
+          <input
+            type="date"
+            value={dateStr}
+            onChange={(e) => e.target.value && setDateStr(e.target.value)}
+            style={{
+              position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer',
+              width: '100%', height: '100%',
+            }}
+          />
         </div>
 
         {/* 分段控制器 */}
@@ -215,7 +233,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
           }}>
             选择分类
           </div>
-          <CategoryGrid categories={typeCategories} selectedId={categoryId} onSelect={setCategoryId} />
+          <CategoryGrid key={type} categories={typeCategories} selectedId={categoryId} onSelect={setCategoryId} />
         </div>
       )}
 

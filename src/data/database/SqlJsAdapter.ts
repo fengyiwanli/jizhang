@@ -126,6 +126,13 @@ CREATE TABLE IF NOT EXISTS budgets (
     updated_at  TEXT NOT NULL
 );
 
+-- 设置表 (用户偏好 key-value)
+CREATE TABLE IF NOT EXISTS settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
+    updated_at TEXT NOT NULL
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions(account_id);

@@ -28,6 +28,8 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [dateStr, setDateStr] = useState(todayLocal());
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
   const amountRef = useRef<HTMLInputElement>(null);
   const amountYuan = parseFloat(amountStr) || 0;
@@ -41,6 +43,17 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
     if (parts.length === 2 && parts[1]!.length > 2) v = parts[0] + '.' + parts[1]!.slice(0, 2);
     if (v.replace('.', '').length > 9) return;
     setAmountStr(v);
+  }
+
+  function addTag(raw: string) {
+    const t = raw.trim().replace(/^#/, '');
+    if (!t) { setTagInput(''); return; }
+    if (!tags.includes(t)) setTags([...tags, t]);
+    setTagInput('');
+  }
+
+  function removeTag(t: string) {
+    setTags(tags.filter((x) => x !== t));
   }
 
   const canSave = type === 'transfer'
@@ -58,10 +71,13 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
         toAccountId: type === 'transfer' ? toAccountId : null,
         date: dateStr, time: nowTimeLocal(),
         note: note.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
       });
       setAmountStr('');
       setNote('');
       setDateStr(todayLocal());
+      setTags([]);
+      setTagInput('');
       if (type === 'transfer') setToAccountId('');
     } catch {
       useToast.getState().error('保存失败，请重试');
@@ -236,6 +252,43 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
           <CategoryGrid key={type} categories={typeCategories} selectedId={categoryId} onSelect={setCategoryId} />
         </div>
       )}
+
+      {/* 标签 */}
+      <div style={{ borderTop: '1px solid #F0F0F2', padding: '10px 16px 0' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          {tags.map((t) => (
+            <span key={t} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              background: '#E8F8F5', color: '#2BAF9F', fontSize: 12,
+              padding: '3px 8px', borderRadius: 12, fontWeight: 500,
+            }}>
+              #{t}
+              <button onClick={() => removeTag(t)} style={{
+                border: 'none', background: 'transparent', color: '#2BAF9F',
+                cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0,
+              }}>×</button>
+            </span>
+          ))}
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ' || e.key === ',') {
+                e.preventDefault();
+                addTag(tagInput);
+              }
+            }}
+            onBlur={() => { if (tagInput) addTag(tagInput); }}
+            placeholder={tags.length === 0 ? '标签（空格分隔）' : '继续添加'}
+            style={{
+              flex: 1, minWidth: 80, border: 'none', outline: 'none',
+              fontSize: 12, padding: '6px 0', background: 'transparent', color: '#1A1A2E',
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
+      </div>
 
       {/* 底部操作区 */}
       <div style={{

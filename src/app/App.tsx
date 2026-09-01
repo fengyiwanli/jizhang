@@ -10,6 +10,7 @@ import SettingsPage from '@/features/settings/SettingsPage';
 import SettingsView from '@/features/settings/SettingsView';
 import RecurringManager from '@/features/settings/RecurringManager';
 import DailyDetailPage from '@/features/stats/DailyDetailPage';
+import AccountDetailPage from '@/features/account/AccountDetailPage';
 import { initializeApp, getAppContext } from '@/data/init';
 import { todayLocal } from '@/core/datetime';
 
@@ -31,9 +32,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-const STORAGE_KEY_ACCOUNT = 'bk_default_acc';
+const ACCOUNT_SETTING_KEY = 'default_account_id';
 
-type View = { type: 'tabs'; tab: string } | { type: 'settings' } | { type: 'daily'; date: string } | { type: 'recurring' };
+type View = { type: 'tabs'; tab: string } | { type: 'settings' } | { type: 'daily'; date: string } | { type: 'recurring' } | { type: 'account'; accountId: string };
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'tabs', tab: 'home' });
@@ -41,22 +42,22 @@ export default function App() {
   const [initError, setInitError] = useState<string | null>(null);
 
   const [budgetInYuan, setBudgetInYuan] = useState<number | null>(null);
-  const [defaultAccountId, setDefaultAccountId] = useState<string | null>(() => {
-    return localStorage.getItem(STORAGE_KEY_ACCOUNT) || null;
-  });
+  const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
+  const [billsTagFilter, setBillsTagFilter] = useState<string>('');
 
   useEffect(() => {
     initializeApp().then(() => setReady(true)).catch((e) => setInitError((e as Error).message));
   }, []);
 
-  // ready 后从 SQLite 读取当前月预算
+  // ready 后从 SQLite 读取当前月预算 + 默认账户
   useEffect(() => {
     if (!ready) return;
-    const { budgetRepo } = getAppContext();
+    const ctx = getAppContext();
     const ym = todayLocal().slice(0, 7);
-    budgetRepo.getTotalBudget(ym).then((amount) => {
+    ctx.budgetRepo.getTotalBudget(ym).then((amount) => {
       setBudgetInYuan(amount !== null ? amount / 100 : null);
     });
+    ctx.settingsRepo.get(ACCOUNT_SETTING_KEY).then(setDefaultAccountId);
   }, [ready]);
 
   function handleBudgetChange(v: number | null) {
@@ -69,8 +70,14 @@ export default function App() {
 
   function handleDefaultAccChange(id: string | null) {
     setDefaultAccountId(id);
-    if (id) localStorage.setItem(STORAGE_KEY_ACCOUNT, id);
-    else localStorage.removeItem(STORAGE_KEY_ACCOUNT);
+    const { settingsRepo } = getAppContext();
+    if (id) settingsRepo.set(ACCOUNT_SETTING_KEY, id);
+    else settingsRepo.remove(ACCOUNT_SETTING_KEY);
+  }
+
+  function handleTagClick(tag: string) {
+    setBillsTagFilter(tag);
+    setView({ type: 'tabs', tab: 'bills' });
   }
 
   async function handleClearData() {
@@ -81,6 +88,7 @@ export default function App() {
       await ctx.categoryRepo.clearAll();
       await ctx.db.execute('DELETE FROM recurring_rules');
       await ctx.budgetRepo.clearAll();
+      await ctx.settingsRepo.clearAll();
       localStorage.clear();
       window.location.reload();
     } catch (e) { console.error('清除失败', e); }
@@ -127,6 +135,14 @@ export default function App() {
     );
   }
 
+  if (view.type === 'account') {
+    return (
+      <ErrorBoundary>
+        <AccountDetailPage accountId={view.accountId} onBack={() => setView({ type: 'tabs', tab: 'home' })} />
+      </ErrorBoundary>
+    );
+  }
+
   // --- 主 Tab 视图 ---
   const tab = view.type === 'tabs' ? view.tab : 'home';
   const pageTitles: Record<string, string> = { home: '记一笔', stats: '统计', bills: '账单', mine: '我的' };
@@ -137,7 +153,7 @@ export default function App() {
       content: (
         <div>
           <PageHeader title={pageTitles.home} onSettings={() => setView({ type: 'settings' })} />
-          <HomePage defAccountId={defaultAccountId} />
+          <HomePage defAccountId={defaultAccountId} onTagClick={handleTagClick} onAccountClick={(id) => setView({ type: 'account', accountId: id })} />
         </div>
       ),
     },
@@ -155,7 +171,7 @@ export default function App() {
       content: (
         <div>
           <PageHeader title={pageTitles.bills} onSettings={() => setView({ type: 'settings' })} />
-          <BillsPage />
+          <BillsPage key={billsTagFilter} initialTag={billsTagFilter || undefined} />
         </div>
       ),
     },

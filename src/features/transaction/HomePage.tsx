@@ -11,7 +11,11 @@ import { useTransactionStore } from '@/features/transaction/store';
 import { todayLocal } from '@/core/datetime';
 import { getAppContext } from '@/data/init';
 
-export default function HomePage({ defAccountId }: { defAccountId?: string | null }) {
+export default function HomePage({ defAccountId, onTagClick, onAccountClick }: {
+  defAccountId?: string | null;
+  onTagClick?: (tag: string) => void;
+  onAccountClick?: (accountId: string) => void;
+}) {
   const loadCategories = useCategoryStore((s) => s.loadCategories);
   const loadAccounts = useAccountStore((s) => s.loadAccounts);
   const loadTransactions = useTransactionStore((s) => s.loadTransactions);
@@ -34,7 +38,7 @@ export default function HomePage({ defAccountId }: { defAccountId?: string | nul
   return (
     <div style={{ paddingBottom: 80 }}>
       {/* 资产总览 */}
-      <AssetsBar accounts={accounts} transactions={transactions} />
+      <AssetsBar accounts={accounts} transactions={transactions} onAccountClick={onAccountClick} />
 
       {/* 本月预算进度 */}
       <BudgetBar transactions={transactions} budgetInYuan={budgetInYuan} />
@@ -54,15 +58,16 @@ export default function HomePage({ defAccountId }: { defAccountId?: string | nul
 
       {/* 最近交易 */}
       <div style={{ padding: '0 16px' }}>
-        <TransactionList />
+        <TransactionList onTagClick={onTagClick} />
       </div>
     </div>
   );
 }
 
-function AssetsBar({ accounts, transactions }: {
+function AssetsBar({ accounts, transactions, onAccountClick }: {
   accounts: { id: string; name: string; type: string; icon: string | null; initialBalance: number }[];
   transactions: { type: string; amount: number; accountId: string; toAccountId: string | null }[];
+  onAccountClick?: (accountId: string) => void;
 }) {
   if (accounts.length === 0) return null;
 
@@ -103,7 +108,7 @@ function AssetsBar({ accounts, transactions }: {
             : acc.type === 'credit' ? CreditCard
             : acc.type === 'bank' ? Building2 : Smartphone;
           return (
-          <div key={acc.id}>
+          <div key={acc.id} onClick={() => onAccountClick?.(acc.id)} style={{ cursor: 'pointer' }}>
             <div style={{ fontSize: 10, opacity: 0.7, letterSpacing: 0.3, display: 'flex', alignItems: 'center', gap: 3 }}>
               <AccIcon size={12} strokeWidth={2} /> {acc.name}
             </div>

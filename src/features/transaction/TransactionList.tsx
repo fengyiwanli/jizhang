@@ -11,7 +11,7 @@ import { useToast } from '@/shared/hooks/useToast';
 import { todayLocal } from '@/core/datetime';
 import { Zap, Trash2, ArrowLeftRight } from 'lucide-react';
 
-export default function TransactionList() {
+export default function TransactionList({ onTagClick }: { onTagClick?: (tag: string) => void }) {
   const transactions = useTransactionStore((s) => s.transactions);
   const loading = useTransactionStore((s) => s.loading);
   const deleteTransaction = useTransactionStore((s) => s.deleteTransaction);
@@ -141,6 +141,18 @@ export default function TransactionList() {
                                 ? `${acc?.icon ?? ''}${acc?.name ?? ''} → ${toAcc?.icon ?? ''}${toAcc?.name ?? ''}`
                                 : `${acc ? `${acc.icon ?? ''}${acc.name} ` : ''}${tx.note || tx.time?.slice(0, 5)}`}
                             </div>
+                            {fmt.tagsList.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
+                                {fmt.tagsList.map((tag) => (
+                                  <span key={tag} onClick={(e) => { e.stopPropagation(); onTagClick?.(tag); }} style={{
+                                    fontSize: 10, color: '#2BAF9F', background: '#E8F8F5',
+                                    padding: '1px 7px', borderRadius: 8, cursor: 'pointer',
+                                  }}>
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
 

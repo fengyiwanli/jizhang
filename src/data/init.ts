@@ -11,6 +11,7 @@ import { AccountRepository } from './repositories/AccountRepository';
 import { StatsRepository } from './repositories/StatsRepository';
 import { RecurringRepository, advanceNextRun } from './repositories/RecurringRepository';
 import { BudgetRepository } from './repositories/BudgetRepository';
+import { SettingsRepository } from './repositories/SettingsRepository';
 import type { TransactionRepository } from './repositories/TransactionRepository';
 import type { DatabaseAdapter } from './database/DatabaseAdapter';
 import { todayLocal } from '@/core/datetime';
@@ -23,6 +24,7 @@ export interface AppContext {
   statsRepo: StatsRepository;
   recurringRepo: RecurringRepository;
   budgetRepo: BudgetRepository;
+  settingsRepo: SettingsRepository;
 }
 
 let appCtx: AppContext | null = null;
@@ -30,6 +32,8 @@ const SEED_FLAG_KEY = 'bookkeeping_seeded_v2';
 const TIME_MIGRATED_KEY = 'bookkeeping_time_migrated_v1';
 const BUDGET_MIGRATED_KEY = 'bookkeeping_budget_migrated_v1';
 const LEGACY_BUDGET_KEY = 'bk_budget';
+const LEGACY_ACCOUNT_KEY = 'bk_default_acc';
+const SETTINGS_ACCOUNT_KEY = 'default_account_id';
 
 /**
  * 一次性迁移：把历史账单的 UTC 日期/时间纠正为本地时间（+8 小时）
@@ -120,8 +124,9 @@ export async function initializeApp(): Promise<AppContext> {
   const statsRepo = new StatsRepository(db);
   const recurringRepo = new RecurringRepository(db);
   const budgetRepo = new BudgetRepository(db);
+  const settingsRepo = new SettingsRepository(db);
 
-  appCtx = { db, transactionRepo, categoryRepo, accountRepo, statsRepo, recurringRepo, budgetRepo };
+  appCtx = { db, transactionRepo, categoryRepo, accountRepo, statsRepo, recurringRepo, budgetRepo, settingsRepo };
 
   // 迁移旧的 localStorage 预算到 SQLite
   if (!localStorage.getItem(BUDGET_MIGRATED_KEY)) {
@@ -134,6 +139,14 @@ export async function initializeApp(): Promise<AppContext> {
       localStorage.removeItem(LEGACY_BUDGET_KEY);
     }
     localStorage.setItem(BUDGET_MIGRATED_KEY, '1');
+  }
+
+  // 迁移旧的 localStorage 默认账户到 settings 表
+  const legacyAccount = localStorage.getItem(LEGACY_ACCOUNT_KEY);
+  if (legacyAccount) {
+    const existing = await settingsRepo.get(SETTINGS_ACCOUNT_KEY);
+    if (!existing) await settingsRepo.set(SETTINGS_ACCOUNT_KEY, legacyAccount);
+    localStorage.removeItem(LEGACY_ACCOUNT_KEY);
   }
 
   // 处理到期的周期账单（自动补记）

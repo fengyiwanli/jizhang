@@ -19,7 +19,7 @@ import type { Account } from '@/domain/entities/Account';
 
 const PAGE_SIZE = 30;
 
-export default function BillsPage() {
+export default function BillsPage({ initialTag }: { initialTag?: string }) {
   const categories = useCategoryStore((s) => s.categories);
   const accounts = useAccountStore((s) => s.accounts);
 
@@ -33,9 +33,22 @@ export default function BillsPage() {
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all');
   const [catFilter, setCatFilter] = useState<UUID | 'all'>('all');
   const [accFilter, setAccFilter] = useState<UUID | 'all'>('all');
+  const [tagFilter, setTagFilter] = useState<string>(initialTag ?? '');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('bk_search_history') || '[]'); }
+    catch { return []; }
+  });
+
+  function saveSearchHistory(kw: string) {
+    const t = kw.trim();
+    if (!t) return;
+    const next = [t, ...searchHistory.filter((x) => x !== t)].slice(0, 10);
+    setSearchHistory(next);
+    localStorage.setItem('bk_search_history', JSON.stringify(next));
+  }
 
   const load = useCallback(async (reset = false) => {
     setLoading(true);
@@ -47,6 +60,7 @@ export default function BillsPage() {
       categoryId: catFilter === 'all' ? undefined : catFilter,
       accountId: accFilter === 'all' ? undefined : accFilter,
       keyword: keyword || undefined,
+      tags: tagFilter ? [tagFilter] : undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       limit: PAGE_SIZE,
@@ -56,7 +70,7 @@ export default function BillsPage() {
     setHasMore(txs.length === PAGE_SIZE);
     setOffset(nextOffset + txs.length);
     setLoading(false);
-  }, [keyword, typeFilter, catFilter, accFilter, dateFrom, dateTo, offset]);
+  }, [keyword, typeFilter, catFilter, accFilter, tagFilter, dateFrom, dateTo, offset]);
 
   useEffect(() => { load(true); }, [load]);
 
@@ -77,6 +91,8 @@ export default function BillsPage() {
           type="text"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') saveSearchHistory(keyword); }}
+          onBlur={() => saveSearchHistory(keyword)}
           placeholder="搜索备注、分类..."
           style={searchInputStyle}
         />
@@ -84,6 +100,24 @@ export default function BillsPage() {
           筛选 {showFilters ? '▲' : '▼'}
         </button>
       </div>
+
+      {/* 搜索历史 */}
+      {searchHistory.length > 0 && !keyword && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {searchHistory.map((h) => (
+            <span
+              key={h}
+              onClick={() => setKeyword(h)}
+              style={{
+                fontSize: 12, color: '#8E8E93', background: '#F5F5F7',
+                padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
+              }}
+            >
+              {h}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* 筛选器 */}
       {showFilters && (
@@ -114,6 +148,13 @@ export default function BillsPage() {
             onChange={(v) => setAccFilter(v as UUID | 'all')}
           />
           <input
+            type="text"
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            placeholder="标签筛选"
+            style={{ padding: '8px 10px', border: 'none', borderRadius: 10, fontSize: 12, background: '#F5F5F7', color: '#1A1A2E', fontFamily: 'inherit', outline: 'none', width: 90 }}
+          />
+          <input
             type="date"
             value={dateFrom}
             max={todayLocal()}
@@ -139,7 +180,8 @@ export default function BillsPage() {
       {!loading && transactions.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: '#8E8E93' }}>
           <div style={{ fontSize: 36 }}>📭</div>
-          <div style={{ marginTop: 8 }}>没有找到交易</div>
+          <div style={{ marginTop: 8 }}>{keyword || tagFilter ? '没有找到匹配的交易' : '没有找到交易'}</div>
+          {(keyword || tagFilter) && <div style={{ fontSize: 12, marginTop: 4 }}>试试更换关键字或清除筛选</div>}
         </div>
       )}
 
@@ -184,6 +226,7 @@ export default function BillsPage() {
                   amount={tx.amount}
                   type={tx.type}
                   tags={fmt.tagsList}
+                  keyword={keyword}
                 />
               );
             })}
@@ -212,9 +255,24 @@ export default function BillsPage() {
 
 // --- 子组件 ---
 
-function TxItem({ categoryName, name, note, time, account, amount, type, tags }: {
+function highlight(text: string, keyword: string): React.ReactNode {
+  if (!keyword) return text;
+  const idx = text.toLowerCase().indexOf(keyword.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ background: '#FFF3B0', color: 'inherit', padding: '0 1px', borderRadius: 2 }}>
+        {text.slice(idx, idx + keyword.length)}
+      </mark>
+      {text.slice(idx + keyword.length)}
+    </>
+  );
+}
+
+function TxItem({ categoryName, name, note, time, account, amount, type, tags, keyword }: {
   categoryName: string | null; name: string; note: string; time: string;
-  account: string; amount: number; type: string; tags: string[];
+  account: string; amount: number; type: string; tags: string[]; keyword?: string;
 }) {
   const isExpense = type === 'expense';
   const isIncome = type === 'income';
@@ -236,11 +294,11 @@ function TxItem({ categoryName, name, note, time, account, amount, type, tags }:
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {name}
+            {highlight(name, keyword ?? '')}
           </div>
           <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {time}
-            {note && ` · ${note}`}
+            {note && <> · {highlight(note, keyword ?? '')}</>}
             {account && ` · ${account}`}
             {tags.length > 0 && ` · ${tags.join(' ')}`}
           </div>

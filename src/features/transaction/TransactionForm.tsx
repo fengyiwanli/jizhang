@@ -4,7 +4,7 @@
  * 布局: 日期 + 类型切换 → 金额 → 分类网格/转账账户 → 底部操作
  * 支持: 支出 / 收入 / 转账
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ArrowDown } from 'lucide-react';
 import CategoryGrid from '@/shared/components/CategoryGrid';
 import { useCategoryStore } from '@/features/category/store';
@@ -14,6 +14,7 @@ import { useToast } from '@/shared/hooks/useToast';
 import type { TransactionType } from '@/core/types';
 import type { UUID } from '@/core/types';
 import { todayLocal, nowTimeLocal } from '@/core/datetime';
+import { getAppContext } from '@/data/init';
 
 export default function TransactionForm({ defAccountId }: { defAccountId?: string | null }) {
   const categories = useCategoryStore((s) => s.categories);
@@ -32,25 +33,19 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [pickerTarget, setPickerTarget] = useState<'from' | 'to' | null>(null);
+  const [balances, setBalances] = useState<Record<string, number>>({});
+
+  // 账户余额走 SQL 聚合
+  useEffect(() => {
+    const { accountRepo } = getAppContext();
+    Promise.all(accounts.map(async (a) => [a.id, await accountRepo.getBalance(a.id)] as const))
+      .then((entries) => setBalances(Object.fromEntries(entries)));
+  }, [accounts, transactions]);
 
   const amountRef = useRef<HTMLInputElement>(null);
   const amountYuan = parseFloat(amountStr) || 0;
   const typeCategories = categories.filter((c) => c.type === type);
   const accentColor = type === 'expense' ? '#E07B6C' : type === 'income' ? '#5FBB97' : '#6C7AE0';
-
-  function accountBalance(accId: string): number {
-    const acc = accounts.find((a) => a.id === accId);
-    let b = acc?.initialBalance ?? 0;
-    for (const tx of transactions) {
-      if (tx.type === 'income' && tx.accountId === accId) b += tx.amount;
-      if (tx.type === 'expense' && tx.accountId === accId) b -= tx.amount;
-      if (tx.type === 'transfer') {
-        if (tx.accountId === accId) b -= tx.amount;
-        if (tx.toAccountId === accId) b += tx.amount;
-      }
-    }
-    return b;
-  }
 
   function handleAmountChange(raw: string) {
     let v = raw.replace(/[^\d.]/g, '');
@@ -223,7 +218,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
             <AccountCard
               account={accounts.find((a) => a.id === (accountId || accounts[0]?.id))}
               label="转出"
-              balance={accountBalance(accountId || accounts[0]?.id || '')}
+              balance={balances[accountId || accounts[0]?.id || ''] ?? 0}
               onClick={() => setPickerTarget('from')}
             />
             <ArrowDown size={18} color="#6C7AE0" style={{ flexShrink: 0 }} />
@@ -231,7 +226,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
             <AccountCard
               account={accounts.find((a) => a.id === toAccountId)}
               label="转入"
-              balance={toAccountId ? accountBalance(toAccountId) : null}
+              balance={toAccountId ? (balances[toAccountId] ?? 0) : null}
               onClick={() => setPickerTarget('to')}
               placeholder="选择账户"
             />

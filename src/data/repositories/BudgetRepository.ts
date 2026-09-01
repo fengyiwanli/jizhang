@@ -37,6 +37,16 @@ export class BudgetRepository {
     return rows[0]?.amount ?? null;
   }
 
+  /** 获取某月支出总额（分），SQL 聚合 */
+  async getMonthSpent(yearMonth: string, ledgerId: UUID = DEFAULT_LEDGER_ID): Promise<number> {
+    const rows = await this.db.query<{ total: number }>(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions
+       WHERE type = 'expense' AND date LIKE ? AND deleted_at IS NULL AND ledger_id = ?`,
+      [`${yearMonth}%`, ledgerId],
+    );
+    return rows[0]?.total ?? 0;
+  }
+
   /** 设置总预算 */
   async setTotalBudget(yearMonth: string, amountInYuan: number, ledgerId: UUID = DEFAULT_LEDGER_ID): Promise<void> {
     const amount = Math.round(amountInYuan * 100);

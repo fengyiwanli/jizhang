@@ -11,7 +11,6 @@ import { getAppContext } from '@/data/init';
 import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
 import type { MonthlySummary, CategoryStat, DailyTrend } from '@/data/repositories/StatsRepository';
 import { MoneyUtils } from '@/core/types';
-import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -94,7 +93,7 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
 
   async function loadWeekData() {
     setLoading(true);
-    const { transactionRepo } = getAppContext();
+    const { statsRepo } = getAppContext();
     const today = new Date();
     const day = today.getDay();
     const mondayOffset = day === 0 ? -6 : 1 - day;
@@ -102,14 +101,15 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
     const lastMonday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7);
     const lastSunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 1);
 
-    const thisWeek = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: fmtDate(monday), dateTo: fmtDate(today), limit: 10000 });
-    const lastWeek = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: fmtDate(lastMonday), dateTo: fmtDate(lastSunday), limit: 10000 });
+    const [thisWeek, lastWeek] = await Promise.all([
+      statsRepo.getWeekSummary(fmtDate(monday), fmtDate(today)),
+      statsRepo.getWeekSummary(fmtDate(lastMonday), fmtDate(lastSunday)),
+    ]);
 
-    const sum = (txs: { type: string; amount: number }[], t: string) => txs.filter((x) => x.type === t).reduce((s, x) => s + x.amount, 0);
-    const thisWeekExpense = sum(thisWeek, 'expense');
-    const thisWeekIncome = sum(thisWeek, 'income');
-    const lastWeekExpense = sum(lastWeek, 'expense');
-    const lastWeekIncome = sum(lastWeek, 'income');
+    const thisWeekExpense = thisWeek.expense;
+    const thisWeekIncome = thisWeek.income;
+    const lastWeekExpense = lastWeek.expense;
+    const lastWeekIncome = lastWeek.income;
     const daysPassed = Math.max(1, Math.floor((today.getTime() - monday.getTime()) / 86400000) + 1);
     const avgDaily = thisWeekExpense / daysPassed;
 
@@ -124,11 +124,9 @@ export default function StatsPage({ onDayClick }: { onDayClick: (date: string) =
       return;
     }
     setLoading(true);
-    const { transactionRepo } = getAppContext();
-    const txs = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: customFrom, dateTo: customTo, limit: 10000 });
-    const expense = txs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    const income = txs.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    setCustomData({ expense, income, count: txs.length });
+    const { statsRepo } = getAppContext();
+    const data = await statsRepo.getCustomSummary(customFrom, customTo);
+    setCustomData({ expense: data.expense, income: data.income, count: data.count });
     setLoading(false);
   }
 

@@ -1,13 +1,14 @@
 /**
  * 「我的」Tab 设置页面
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AccountManager from '@/features/account/AccountManager';
 import CategoryManager from '@/features/category/CategoryManager';
 import DataExport from '@/features/settings/DataExport';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
+import { getAppContext } from '@/data/init';
 
 export default function SettingsPage() {
   const loadCategories = useCategoryStore((s) => s.loadCategories);
@@ -15,28 +16,20 @@ export default function SettingsPage() {
   const loadTransactions = useTransactionStore((s) => s.loadTransactions);
   const accounts = useAccountStore((s) => s.accounts);
   const transactions = useTransactionStore((s) => s.transactions);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     loadCategories();
     loadAccounts();
-    loadTransactions(200);
+    loadTransactions(10000);
   }, []);
 
-  // 计算资产
-  const balances: Record<string, number> = {};
-  for (const acc of accounts) {
-    let b = acc.initialBalance ?? 0;
-    for (const tx of transactions) {
-      if (tx.type === 'income' && tx.accountId === acc.id) b += tx.amount;
-      if (tx.type === 'expense' && tx.accountId === acc.id) b -= tx.amount;
-      if (tx.type === 'transfer') {
-        if (tx.accountId === acc.id) b -= tx.amount;
-        if (tx.toAccountId === acc.id) b += tx.amount;
-      }
-    }
-    balances[acc.id] = b;
-  }
-  const total = Object.values(balances).reduce((s, v) => s + v, 0);
+  // 总资产走 SQL 聚合
+  useEffect(() => {
+    const { accountRepo } = getAppContext();
+    Promise.all(accounts.map(async (a) => accountRepo.getBalance(a.id)))
+      .then((list) => setTotal(list.reduce((s, v) => s + v, 0)));
+  }, [accounts, transactions]);
 
   return (
     <div style={{ padding: '16px 16px 80px', maxWidth: 500, margin: '0 auto' }}>

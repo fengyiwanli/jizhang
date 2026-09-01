@@ -23,26 +23,19 @@ export default function AccountManager() {
   const loadTransactions = useTransactionStore((s) => s.loadTransactions);
   const [showForm, setShowForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [balances, setBalances] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadAccounts();
-    loadTransactions(200);
+    loadTransactions(10000);
   }, []);
 
-  // 计算各账户余额
-  const balances: Record<string, number> = {};
-  for (const acc of accounts) {
-    let b = acc.initialBalance ?? 0;
-    for (const tx of transactions) {
-      if (tx.type === 'income' && tx.accountId === acc.id) b += tx.amount;
-      if (tx.type === 'expense' && tx.accountId === acc.id) b -= tx.amount;
-      if (tx.type === 'transfer') {
-        if (tx.accountId === acc.id) b -= tx.amount;
-        if (tx.toAccountId === acc.id) b += tx.amount;
-      }
-    }
-    balances[acc.id] = b;
-  }
+  // 账户余额走 SQL 聚合
+  useEffect(() => {
+    const { accountRepo } = getAppContext();
+    Promise.all(accounts.map(async (a) => [a.id, await accountRepo.getBalance(a.id)] as const))
+      .then((entries) => setBalances(Object.fromEntries(entries)));
+  }, [accounts, transactions]);
 
   function handleEdit(acc: Account) {
     setEditingAccount(acc);

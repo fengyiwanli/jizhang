@@ -116,25 +116,29 @@ export class AccountRepository {
     await this.db.execute('DELETE FROM accounts');
   }
 
-  /** 获取账户余额 (基于交易聚合) */
+  /**
+   * 获取账户完整余额（初始余额 + 交易净变动）
+   * SQL 聚合：收入 + 转入 - 支出 - 转出
+   */
   async getBalance(accountId: UUID, ledgerId: UUID = DEFAULT_LEDGER_ID): Promise<number> {
-    // 收入 + 转入 - 支出 - 转出
     const rows = await this.db.query<{ balance: number }>(
       `SELECT
-        COALESCE(SUM(CASE
-          WHEN type = 'income' THEN amount
-          WHEN type = 'transfer' AND to_account_id = ? THEN amount
-          ELSE 0
-        END), 0)
-        -
-        COALESCE(SUM(CASE
-          WHEN type = 'expense' AND account_id = ? THEN amount
-          WHEN type = 'transfer' AND account_id = ? THEN amount
-          ELSE 0
-        END), 0) as balance
-      FROM transactions
-      WHERE deleted_at IS NULL AND ledger_id = ?`,
-      [accountId, accountId, accountId, ledgerId],
+        a.initial_balance + COALESCE((
+          SELECT SUM(
+            CASE
+              WHEN t.type = 'income' AND t.account_id = a.id THEN t.amount
+              WHEN t.type = 'expense' AND t.account_id = a.id THEN -t.amount
+              WHEN t.type = 'transfer' AND t.account_id = a.id THEN -t.amount
+              WHEN t.type = 'transfer' AND t.to_account_id = a.id THEN t.amount
+              ELSE 0
+            END
+          )
+          FROM transactions t
+          WHERE t.deleted_at IS NULL AND t.ledger_id = a.ledger_id
+        ), 0) as balance
+      FROM accounts a
+      WHERE a.id = ? AND a.deleted_at IS NULL AND a.ledger_id = ?`,
+      [accountId, ledgerId],
     );
     return rows[0]?.balance ?? 0;
   }

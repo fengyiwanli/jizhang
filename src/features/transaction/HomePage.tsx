@@ -1,5 +1,6 @@
 /**
  * 首页 — 现代极简风格
+ * 余额/预算/今日概览均使用 SQL 聚合，不遍历 transactions
  */
 import { useEffect, useState } from 'react';
 import { Banknote, Building2, CreditCard, Smartphone } from 'lucide-react';
@@ -23,25 +24,37 @@ export default function HomePage({ defAccountId, onTagClick, onAccountClick }: {
   const accounts = useAccountStore((s) => s.accounts);
 
   const [budgetInYuan, setBudgetInYuan] = useState<number | null>(null);
+  const [balances, setBalances] = useState<Record<string, number>>({});
+  const [monthSpent, setMonthSpent] = useState(0);
+  const [todayData, setTodayData] = useState<{ expense: number; income: number; count: number } | null>(null);
 
   useEffect(() => {
     loadCategories();
     loadAccounts();
     loadTransactions(10000);
-    // 读取本月预算
-    const ym = todayLocal().slice(0, 7);
-    getAppContext().budgetRepo.getTotalBudget(ym).then((amount) => {
-      setBudgetInYuan(amount !== null ? amount / 100 : null);
-    });
   }, []);
+
+  // 余额、预算、本月支出、今日概览全部走 SQL 聚合
+  useEffect(() => {
+    const { accountRepo, budgetRepo, statsRepo } = getAppContext();
+    const ym = todayLocal().slice(0, 7);
+    const today = todayLocal();
+
+    Promise.all(accounts.map(async (a) => [a.id, await accountRepo.getBalance(a.id)] as const))
+      .then((entries) => setBalances(Object.fromEntries(entries)));
+
+    budgetRepo.getTotalBudget(ym).then((amount) => setBudgetInYuan(amount !== null ? amount / 100 : null));
+    budgetRepo.getMonthSpent(ym).then(setMonthSpent);
+    statsRepo.getRangeSummary(today, today).then(setTodayData);
+  }, [accounts, transactions]);
 
   return (
     <div style={{ paddingBottom: 80 }}>
       {/* 资产总览 */}
-      <AssetsBar accounts={accounts} transactions={transactions} onAccountClick={onAccountClick} />
+      <AssetsBar accounts={accounts} balances={balances} onAccountClick={onAccountClick} />
 
       {/* 本月预算进度 */}
-      <BudgetBar transactions={transactions} budgetInYuan={budgetInYuan} />
+      <BudgetBar spent={monthSpent} budgetInYuan={budgetInYuan} />
 
       {/* 记账表单卡片 */}
       <div style={{
@@ -54,7 +67,7 @@ export default function HomePage({ defAccountId, onTagClick, onAccountClick }: {
       </div>
 
       {/* 今日概览 */}
-      <TodayBar transactions={transactions} />
+      <TodayBar todayData={todayData} />
 
       {/* 最近交易 */}
       <div style={{ padding: '0 16px' }}>
@@ -64,27 +77,12 @@ export default function HomePage({ defAccountId, onTagClick, onAccountClick }: {
   );
 }
 
-function AssetsBar({ accounts, transactions, onAccountClick }: {
-  accounts: { id: string; name: string; type: string; icon: string | null; initialBalance: number }[];
-  transactions: { type: string; amount: number; accountId: string; toAccountId: string | null }[];
+function AssetsBar({ accounts, balances, onAccountClick }: {
+  accounts: { id: string; name: string; type: string; icon: string | null }[];
+  balances: Record<string, number>;
   onAccountClick?: (accountId: string) => void;
 }) {
   if (accounts.length === 0) return null;
-
-  // 计算每个账户余额
-  const balances: Record<string, number> = {};
-  for (const acc of accounts) {
-    let b = acc.initialBalance ?? 0;
-    for (const tx of transactions) {
-      if (tx.type === 'income' && tx.accountId === acc.id) b += tx.amount;
-      if (tx.type === 'expense' && tx.accountId === acc.id) b -= tx.amount;
-      if (tx.type === 'transfer') {
-        if (tx.accountId === acc.id) b -= tx.amount;
-        if (tx.toAccountId === acc.id) b += tx.amount;
-      }
-    }
-    balances[acc.id] = b;
-  }
 
   const total = Object.values(balances).reduce((s, v) => s + v, 0);
 
@@ -123,16 +121,12 @@ function AssetsBar({ accounts, transactions, onAccountClick }: {
   );
 }
 
-function BudgetBar({ transactions, budgetInYuan }: {
-  transactions: { type: string; amount: number; date: string }[];
+function BudgetBar({ spent, budgetInYuan }: {
+  spent: number;
   budgetInYuan: number | null;
 }) {
   if (budgetInYuan === null || budgetInYuan <= 0) return null;
 
-  const ym = todayLocal().slice(0, 7);
-  const spent = transactions
-    .filter((t) => t.type === 'expense' && t.date.startsWith(ym))
-    .reduce((s, t) => s + t.amount, 0);
   const budget = Math.round(budgetInYuan * 100);
   const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
   const remain = budget - spent;
@@ -149,7 +143,6 @@ function BudgetBar({ transactions, budgetInYuan }: {
         <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A2E' }}>本月预算</span>
         <span style={{ fontSize: 12, color: '#8E8E93' }}>{pct}%</span>
       </div>
-      {/* 进度条 */}
       <div style={{ height: 8, borderRadius: 4, background: '#F0F0F2', overflow: 'hidden' }}>
         <div style={{
           height: '100%', borderRadius: 4,
@@ -170,12 +163,8 @@ function BudgetBar({ transactions, budgetInYuan }: {
   );
 }
 
-function TodayBar({ transactions }: { transactions: { type: string; amount: number; date: string }[] }) {
-  const today = todayLocal();
-  const todayTxs = transactions.filter((t) => t.date === today);
-  if (todayTxs.length === 0) return null;
-  const expense = todayTxs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const income = todayTxs.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+function TodayBar({ todayData }: { todayData: { expense: number; income: number; count: number } | null }) {
+  if (!todayData || todayData.count === 0) return null;
 
   return (
     <div style={{
@@ -184,11 +173,11 @@ function TodayBar({ transactions }: { transactions: { type: string; amount: numb
       display: 'flex', justifyContent: 'space-around',
       boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
     }}>
-      <TodayBlock label="今日支出" value={expense} color="#E07B6C" />
+      <TodayBlock label="今日支出" value={todayData.expense} color="#E07B6C" />
       <div style={{ width: 1, background: '#F0F0F2' }} />
-      <TodayBlock label="今日收入" value={income} color="#5FBB97" />
+      <TodayBlock label="今日收入" value={todayData.income} color="#5FBB97" />
       <div style={{ width: 1, background: '#F0F0F2' }} />
-      <TodayBlock label="笔数" value={todayTxs.length} color="#1A1A2E" isCount />
+      <TodayBlock label="笔数" value={todayData.count} color="#1A1A2E" isCount />
     </div>
   );
 }

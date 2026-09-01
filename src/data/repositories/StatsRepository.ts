@@ -232,4 +232,46 @@ export class StatsRepository {
       percentage: total > 0 ? Math.round((r.amount / total) * 1000) / 10 : 0,
     }));
   }
+
+  /** 按日期范围聚合收支（SQL 聚合） */
+  async getRangeSummary(
+    dateFrom: string,
+    dateTo: string,
+    ledgerId: UUID = DEFAULT_LEDGER_ID,
+  ): Promise<{ expense: number; income: number; count: number }> {
+    const rows = await this.db.query<{ expense: number; income: number; count: number }>(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as expense,
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income,
+        COUNT(*) as count
+      FROM transactions
+      WHERE deleted_at IS NULL AND ledger_id = ? AND date >= ? AND date <= ?`,
+      [ledgerId, dateFrom, dateTo],
+    );
+    return rows[0] ?? { expense: 0, income: 0, count: 0 };
+  }
+
+  /** 某账户收支汇总（SQL 聚合，不含转账） */
+  async getAccountSummary(accountId: UUID, ledgerId: UUID = DEFAULT_LEDGER_ID) {
+    const rows = await this.db.query<{ expense: number; income: number; count: number }>(
+      `SELECT
+        COALESCE(SUM(CASE WHEN type = 'expense' AND account_id = ? THEN amount ELSE 0 END), 0) as expense,
+        COALESCE(SUM(CASE WHEN type = 'income' AND account_id = ? THEN amount ELSE 0 END), 0) as income,
+        COUNT(*) as count
+      FROM transactions
+      WHERE deleted_at IS NULL AND ledger_id = ? AND (account_id = ? OR to_account_id = ?)`,
+      [accountId, accountId, ledgerId, accountId, accountId],
+    );
+    return rows[0] ?? { expense: 0, income: 0, count: 0 };
+  }
+
+  /** 周汇总 */
+  async getWeekSummary(dateFrom: string, dateTo: string, ledgerId: UUID = DEFAULT_LEDGER_ID) {
+    return this.getRangeSummary(dateFrom, dateTo, ledgerId);
+  }
+
+  /** 自定义时间范围汇总 */
+  async getCustomSummary(dateFrom: string, dateTo: string, ledgerId: UUID = DEFAULT_LEDGER_ID) {
+    return this.getRangeSummary(dateFrom, dateTo, ledgerId);
+  }
 }

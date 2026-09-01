@@ -1,7 +1,7 @@
 /**
  * 账户详情页 — 余额 + 流水列表 + 收支汇总
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Zap, ArrowLeftRight } from 'lucide-react';
 import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
@@ -9,6 +9,7 @@ import { useTransactionStore } from '@/features/transaction/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
 import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
 import { todayLocal } from '@/core/datetime';
+import { getAppContext } from '@/data/init';
 
 export default function AccountDetailPage({ accountId, onBack }: { accountId: string; onBack: () => void }) {
   const accounts = useAccountStore((s) => s.accounts);
@@ -17,25 +18,18 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
   const loadTransactions = useTransactionStore((s) => s.loadTransactions);
 
   const acc = accounts.find((a) => a.id === accountId);
+  const [balance, setBalance] = useState(0);
+  const [summary, setSummary] = useState<{ expense: number; income: number; count: number }>({ expense: 0, income: 0, count: 0 });
 
-  useEffect(() => { loadTransactions(10000); }, []);
+  useEffect(() => {
+    loadTransactions(10000);
+    const { accountRepo, statsRepo } = getAppContext();
+    accountRepo.getBalance(accountId).then(setBalance);
+    statsRepo.getAccountSummary(accountId).then(setSummary);
+  }, [accountId]);
 
-  // 该账户相关交易（源账户或转账目标账户）
+  // 该账户相关交易（仅用于流水列表展示，不参与金额计算）
   const accTxs = transactions.filter((t) => t.accountId === accountId || t.toAccountId === accountId);
-
-  // 余额
-  let balance = acc?.initialBalance ?? 0;
-  for (const tx of accTxs) {
-    if (tx.type === 'income' && tx.accountId === accountId) balance += tx.amount;
-    if (tx.type === 'expense' && tx.accountId === accountId) balance -= tx.amount;
-    if (tx.type === 'transfer') {
-      if (tx.accountId === accountId) balance -= tx.amount;
-      if (tx.toAccountId === accountId) balance += tx.amount;
-    }
-  }
-
-  const income = accTxs.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const expense = accTxs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
   // 按日期分组降序
   const grouped = accTxs.reduce<Record<string, typeof accTxs>>((map, tx) => {
@@ -86,11 +80,11 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
           background: '#FFF', borderRadius: 16, marginBottom: 12,
           boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
         }}>
-          <SummaryBlock label="收入" value={income} color="#5FBB97" />
+          <SummaryBlock label="收入" value={summary.income} color="#5FBB97" />
           <div style={{ width: 1, background: '#F0F0F2' }} />
-          <SummaryBlock label="支出" value={expense} color="#E07B6C" />
+          <SummaryBlock label="支出" value={summary.expense} color="#E07B6C" />
           <div style={{ width: 1, background: '#F0F0F2' }} />
-          <SummaryBlock label="笔数" value={accTxs.length} color="#1A1A2E" isCount />
+          <SummaryBlock label="笔数" value={summary.count} color="#1A1A2E" isCount />
         </div>
 
         {/* 流水列表 */}

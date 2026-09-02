@@ -27,8 +27,8 @@ export default function TabBar({ tabs, activeTab, onTabChange }: TabBarProps) {
       <nav style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         display: 'flex',
-        background: '#FFF',
-        borderTop: '1px solid #F0F0F2',
+        background: 'var(--color-card)',
+        borderTop: '1px solid var(--color-divider)',
         padding: '6px 0 env(safe-area-inset-bottom, 8px)',
         zIndex: 100,
         boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
@@ -39,6 +39,7 @@ export default function TabBar({ tabs, activeTab, onTabChange }: TabBarProps) {
           return (
             <button
               key={tab.key}
+              className="tab-item"
               onClick={() => onTabChange(tab.key)}
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column',
@@ -46,19 +47,27 @@ export default function TabBar({ tabs, activeTab, onTabChange }: TabBarProps) {
                 padding: '6px 0', border: 'none',
                 background: 'transparent', cursor: 'pointer',
                 fontFamily: 'inherit',
+                transition: 'transform var(--transition-press)',
               }}
             >
+              {/* 选中指示器：小圆点 */}
+              <span style={{
+                width: 4, height: 4, borderRadius: 2, marginBottom: 3,
+                background: 'var(--color-primary)',
+                opacity: active ? 1 : 0,
+                transition: 'opacity 180ms ease',
+              }} />
               <Icon
-                size={22}
-                strokeWidth={active ? 2 : 1.5}
-                color={active ? '#4ECDC4' : '#8E8E93'}
+                size={23}
+                strokeWidth={active ? 2.2 : 1.6}
+                color={active ? 'var(--color-primary)' : 'var(--color-text-tertiary)'}
                 style={{ transition: 'all 180ms ease' }}
               />
               <span style={{
                 fontSize: 10, marginTop: 3,
-                color: active ? '#4ECDC4' : '#8E8E93',
+                color: active ? 'var(--color-primary)' : 'var(--color-text-tertiary)',
                 fontWeight: active ? 600 : 400,
-                transition: 'color 180ms',
+                transition: 'color 180ms ease, font-weight 180ms ease',
                 letterSpacing: 0.2,
               }}>
                 {tab.label}

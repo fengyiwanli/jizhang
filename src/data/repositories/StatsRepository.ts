@@ -97,6 +97,47 @@ export class StatsRepository {
     }));
   }
 
+  /** 按日期范围分类统计（子分类归并到父分类），日/周/自定义视图共用 */
+  async getRangeCategoryStats(
+    dateFrom: string,
+    dateTo: string,
+    type: 'expense' | 'income' = 'expense',
+    ledgerId: UUID = DEFAULT_LEDGER_ID,
+  ): Promise<CategoryStat[]> {
+    const rows = await this.db.query<{
+      categoryId: UUID;
+      categoryName: string;
+      categoryIcon: string;
+      categoryColor: string;
+      amount: number;
+      count: number;
+    }>(
+      `SELECT
+        COALESCE(pc.id, c.id) as categoryId,
+        COALESCE(pc.name, c.name) as categoryName,
+        COALESCE(pc.icon, c.icon) as categoryIcon,
+        COALESCE(pc.color, c.color) as categoryColor,
+        SUM(t.amount) as amount,
+        COUNT(*) as count
+      FROM transactions t
+      LEFT JOIN categories c ON t.category_id = c.id
+      LEFT JOIN categories pc ON c.parent_id = pc.id
+      WHERE t.ledger_id = ? AND t.date BETWEEN ? AND ? AND t.type = ? AND t.deleted_at IS NULL
+        AND t.category_id IS NOT NULL
+      GROUP BY COALESCE(pc.id, c.id)
+      ORDER BY amount DESC`,
+      [ledgerId, dateFrom, dateTo, type],
+    );
+
+    const total = rows.reduce((sum, r) => sum + r.amount, 0);
+    return rows.map((r) => ({
+      ...r,
+      categoryIcon: r.categoryIcon ?? '📦',
+      categoryColor: r.categoryColor ?? '#B0B0B0',
+      percentage: total > 0 ? Math.round((r.amount / total) * 1000) / 10 : 0,
+    }));
+  }
+
   /** 每日趋势 (折线图) */
   async getDailyTrend(
     yearMonth: string,

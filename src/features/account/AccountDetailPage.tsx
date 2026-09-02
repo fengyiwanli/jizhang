@@ -7,7 +7,7 @@ import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useTransactionStore } from '@/features/transaction/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
-import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
+import { getCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
 import { todayLocal } from '@/core/datetime';
 import { getAppContext } from '@/data/init';
 
@@ -40,22 +40,22 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
   const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F5F7' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg-secondary)' }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center',
         paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))',
         paddingRight: 12, paddingBottom: 12, paddingLeft: 12,
-        background: '#F5F5F7', position: 'sticky', top: 0, zIndex: 10,
+        background: 'var(--color-bg-secondary)', position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={onBack} style={{
-          width: 34, height: 34, borderRadius: 17, background: '#FFF',
-          border: '1px solid #E8E8ED', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 34, height: 34, borderRadius: 17, background: 'var(--color-card)',
+          border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', marginRight: 10,
         }}>
-          <ArrowLeft size={17} color="#1A1A2E" />
+          <ArrowLeft size={17} color="var(--color-text-primary)" />
         </button>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1A1A2E', margin: 0, letterSpacing: -0.3 }}>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, letterSpacing: -0.3 }}>
           {acc ? `${acc.icon ?? ''} ${acc.name}` : '账户'}
         </h1>
       </div>
@@ -64,8 +64,8 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
         {/* 余额卡 */}
         <div style={{
           margin: '12px 0', padding: '20px 20px',
-          background: 'linear-gradient(145deg, #4ECDC4 0%, #3DBDB5 100%)',
-          borderRadius: 20, color: '#FFF',
+          background: 'linear-gradient(145deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
+          borderRadius: 20, color: 'var(--color-card)',
           boxShadow: '0 4px 20px rgba(78,205,196,0.25)',
         }}>
           <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.5, marginBottom: 2 }}>当前余额</div>
@@ -77,14 +77,14 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
         {/* 收支汇总 */}
         <div style={{
           display: 'flex', justifyContent: 'space-around', padding: '14px 0',
-          background: '#FFF', borderRadius: 16, marginBottom: 12,
+          background: 'var(--color-card)', borderRadius: 16, marginBottom: 12,
           boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
         }}>
-          <SummaryBlock label="收入" value={summary.income} color="#5FBB97" />
-          <div style={{ width: 1, background: '#F0F0F2' }} />
-          <SummaryBlock label="支出" value={summary.expense} color="#E07B6C" />
-          <div style={{ width: 1, background: '#F0F0F2' }} />
-          <SummaryBlock label="笔数" value={summary.count} color="#1A1A2E" isCount />
+          <SummaryBlock label="收入" value={summary.income} color="var(--color-income)" />
+          <div style={{ width: 1, background: 'var(--color-divider)' }} />
+          <SummaryBlock label="支出" value={summary.expense} color="var(--color-expense)" />
+          <div style={{ width: 1, background: 'var(--color-divider)' }} />
+          <SummaryBlock label="笔数" value={summary.count} color="var(--color-text-primary)" isCount />
         </div>
 
         {/* 流水列表 */}
@@ -97,15 +97,15 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
 
         {dates.map((date) => (
           <div key={date} style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1A2E', padding: '6px 4px' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', padding: '6px 4px' }}>
               {fmtDate(date)}
             </div>
-            <div style={{ background: '#FFF', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ background: 'var(--color-card)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
               {grouped[date].map((tx, i) => {
                 const fmt = formatTransaction(tx);
                 const cat = categories.find((c) => c.id === tx.categoryId);
                 const isTransfer = tx.type === 'transfer';
-                const color = isTransfer ? '#6C7AE0' : (cat?.color ?? getCategoryColor(cat?.name ?? ''));
+                const color = isTransfer ? 'var(--color-transfer)' : (cat?.color ?? getCategoryColor(cat?.name ?? ''));
                 const IconComp = isTransfer ? ArrowLeftRight : (getCategoryIcon(cat?.name ?? '') ?? Zap);
                 // 该账户视角：转出/支出为负，收入/转入为正
                 const isOut = tx.type === 'expense' || (tx.type === 'transfer' && tx.accountId === accountId);
@@ -113,27 +113,29 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
                 return (
                   <div key={tx.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 16px', borderBottom: i < grouped[date].length - 1 ? '1px solid #F5F5F7' : 'none',
+                    padding: '12px 16px', borderBottom: i < grouped[date].length - 1 ? '1px solid var(--color-bg-secondary)' : 'none',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                       <div style={{
-                        width: 36, height: 36, borderRadius: 10, background: '#F5F5F7',
+                        width: 36, height: 36, borderRadius: 10,
+                        /* 图标底色跟随分类色 10% 透明度 */
+                        background: tintColor(color),
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
                         <IconComp size={16} strokeWidth={1.8} color={color} />
                       </div>
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {isTransfer ? '转账' : (cat?.name ?? fmt.typeLabel)}
                         </div>
-                        <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {tx.time?.slice(0, 5)}{tx.note ? ` · ${tx.note}` : ''}
                         </div>
                       </div>
                     </div>
                     <span style={{
                       fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap',
-                      color: isTransfer ? '#6C7AE0' : isOut ? '#E07B6C' : '#5FBB97',
+                      color: isTransfer ? 'var(--color-transfer)' : isOut ? 'var(--color-expense)' : 'var(--color-income)',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {isTransfer ? '' : isOut ? '-' : '+'}¥{(tx.amount / 100).toFixed(2)}
@@ -154,7 +156,7 @@ function SummaryBlock({ label, value, color, isCount }: {
 }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 11, color: '#8E8E93' }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{label}</div>
       <div style={{ fontSize: 17, fontWeight: 700, color, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
         {isCount ? value : `¥${(value / 100).toFixed(2)}`}
       </div>

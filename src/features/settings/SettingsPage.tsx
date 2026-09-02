@@ -35,15 +35,15 @@ export default function SettingsPage() {
     <div style={{ padding: '16px 16px 80px', maxWidth: 500, margin: '0 auto' }}>
       {/* 应用标题 */}
       <div style={{ textAlign: 'center', padding: '24px 0 16px' }}>
-        <h2 style={{ fontSize: 20, color: '#1A1A2E', margin: 0 }}>记一笔</h2>
-        <p style={{ fontSize: 12, color: '#8E8E93', marginTop: 4 }}>个人记账 · 本地优先</p>
+        <h2 style={{ fontSize: 20, color: 'var(--color-text-primary)', margin: 0 }}>记一笔</h2>
+        <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4 }}>个人记账 · 本地优先</p>
       </div>
 
       {/* 总资产 */}
       <Section>
         <div style={{
-          background: 'linear-gradient(145deg, #4ECDC4 0%, #3DBDB5 100%)',
-          borderRadius: 14, padding: '18px 20px', color: '#FFF',
+          background: 'linear-gradient(145deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
+          borderRadius: 14, padding: '18px 20px', color: 'var(--color-card)',
         }}>
           <div style={{ fontSize: 11, opacity: 0.75, letterSpacing: 0.5, marginBottom: 2 }}>总资产</div>
           <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.5 }}>
@@ -73,7 +73,7 @@ export default function SettingsPage() {
 function Section({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      background: '#FFF', borderRadius: 16, padding: 14, marginBottom: 12,
+      background: 'var(--color-card)', borderRadius: 16, padding: 14, marginBottom: 12,
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
     }}>
       {children}

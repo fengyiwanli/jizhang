@@ -22,6 +22,9 @@ const EXPENSE_CATEGORIES = [
   { id: 'cat-exp-08', parentId: 'cat-exp-07', name: '公交/地铁', icon: '🚇', color: '#4ECDC4', sortOrder: 1 },
   { id: 'cat-exp-09', parentId: 'cat-exp-07', name: '打车', icon: '🚕', color: '#4ECDC4', sortOrder: 2 },
   { id: 'cat-exp-10', parentId: 'cat-exp-07', name: '加油/停车', icon: '⛽', color: '#4ECDC4', sortOrder: 3 },
+  { id: 'cat-exp-23', parentId: 'cat-exp-07', name: '火车/高铁', icon: '🚄', color: '#4ECDC4', sortOrder: 4 },
+  { id: 'cat-exp-24', parentId: 'cat-exp-07', name: '飞机/机票', icon: '✈️', color: '#4ECDC4', sortOrder: 5 },
+  { id: 'cat-exp-25', parentId: 'cat-exp-07', name: '长途/大巴', icon: '🚌', color: '#4ECDC4', sortOrder: 6 },
   { id: 'cat-exp-11', parentId: null, name: '购物', icon: '🛒', color: '#45B7D1', sortOrder: 3 },
   { id: 'cat-exp-12', parentId: 'cat-exp-11', name: '日用品', icon: '🧴', color: '#45B7D1', sortOrder: 1 },
   { id: 'cat-exp-13', parentId: 'cat-exp-11', name: '服饰', icon: '👗', color: '#45B7D1', sortOrder: 2 },
@@ -52,6 +55,29 @@ const DEFAULT_ACCOUNTS = [
   { id: 'acc-default-03', name: '支付宝', type: 'e-wallet' as const, icon: '🔵', sortOrder: 3 },
   { id: 'acc-default-04', name: '微信', type: 'e-wallet' as const, icon: '🟢', sortOrder: 4 },
 ];
+
+/**
+ * 增量补种分类：只包含「版本更新后新增」的系统分类（不包含完整预设集合），
+ * 用于老用户（种子已安装过、不会重跑 installSeed）的数据库。
+ * ⚠️ 只补新增分类，避免把用户主动删除过的老系统分类复活。
+ */
+const EXTRA_CATEGORIES = [
+  { id: 'cat-exp-23', name: '火车/高铁', icon: '🚄', color: '#4ECDC4', sortOrder: 4 },
+  { id: 'cat-exp-24', name: '飞机/机票', icon: '✈️', color: '#4ECDC4', sortOrder: 5 },
+  { id: 'cat-exp-25', name: '长途/大巴', icon: '🚌', color: '#4ECDC4', sortOrder: 6 },
+] as const;
+
+/** 老库增量补种：每次启动调用，INSERT OR IGNORE（by id），幂等不覆盖老数据 */
+export async function ensureExtraCategories(db: DatabaseAdapter): Promise<void> {
+  const now = nowUTC();
+  for (const cat of EXTRA_CATEGORIES) {
+    await db.execute(
+      `INSERT OR IGNORE INTO categories (id, ledger_id, parent_id, name, type, icon, color, sort_order, is_system, created_at, updated_at)
+       VALUES (?, ?, 'cat-exp-07', ?, 'expense', ?, ?, ?, 1, ?, ?)`,
+      [cat.id, DEFAULT_LEDGER_ID, cat.name, cat.icon, cat.color, cat.sortOrder, now, now],
+    );
+  }
+}
 
 /** 检查种子数据是否已安装 */
 export async function isSeedInstalled(db: DatabaseAdapter): Promise<boolean> {

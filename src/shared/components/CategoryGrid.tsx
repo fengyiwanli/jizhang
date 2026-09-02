@@ -33,11 +33,11 @@ export default function CategoryGrid({ categories, selectedId, onSelect }: Categ
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             border: 'none', background: 'transparent', cursor: 'pointer',
-            fontSize: 13, fontWeight: 600, color: '#1A1A2E',
+            fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)',
             padding: '4px 4px 10px', fontFamily: 'inherit',
           }}
         >
-          <ChevronLeft size={16} color="#8E8E93" />
+          <ChevronLeft size={16} color="var(--color-text-secondary)" />
           {parent?.icon ?? ''} {parent?.name ?? '返回'}
         </button>
 
@@ -95,14 +95,16 @@ export default function CategoryGrid({ categories, selectedId, onSelect }: Categ
             <div style={{
               width: 48, height: 48,
               borderRadius: 14,
-              background: isSelected ? `${cat.color || getCategoryColor(cat.name)}18` : '#F5F5F7',
+              background: isSelected ? `${cat.color || getCategoryColor(cat.name)}22` : 'var(--color-bg-secondary)',
+              /* 选中加内描边：浅色分类（如"其他支出"）也清晰可见 */
+              boxShadow: isSelected ? `inset 0 0 0 1.5px ${cat.color || getCategoryColor(cat.name)}` : 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 200ms ease',
               position: 'relative',
             }}>
-              <CategoryIcon name={cat.name} color={isSelected ? (cat.color || getCategoryColor(cat.name)) : '#8E8E93'} />
+              <CategoryIcon name={cat.name} color={isSelected ? (cat.color || getCategoryColor(cat.name)) : 'var(--color-text-secondary)'} />
               {hasChildren && (
                 <span style={{
                   position: 'absolute', right: 3, bottom: 3,
@@ -113,7 +115,7 @@ export default function CategoryGrid({ categories, selectedId, onSelect }: Categ
             <span style={{
               fontSize: 11,
               fontWeight: isSelected ? 600 : 400,
-              color: isSelected ? (cat.color || getCategoryColor(cat.name)) : '#8E8E93',
+              color: isSelected ? (cat.color || getCategoryColor(cat.name)) : 'var(--color-text-secondary)',
               transition: 'color 200ms ease',
               letterSpacing: 0.2,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%',
@@ -157,18 +159,20 @@ function CatButton({ cat, selected, onSelect }: {
       <div style={{
         width: 48, height: 48,
         borderRadius: 14,
-        background: selected ? `${color}18` : '#F5F5F7',
+        background: selected ? `${color}22` : 'var(--color-bg-secondary)',
+        /* 选中加内描边 */
+        boxShadow: selected ? `inset 0 0 0 1.5px ${color}` : 'none',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         transition: 'all 200ms ease',
       }}>
-        <CategoryIcon name={cat.name} color={selected ? color : '#8E8E93'} />
+        <CategoryIcon name={cat.name} color={selected ? color : 'var(--color-text-secondary)'} />
       </div>
       <span style={{
         fontSize: 11,
         fontWeight: selected ? 600 : 400,
-        color: selected ? color : '#8E8E93',
+        color: selected ? color : 'var(--color-text-secondary)',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%',
       }}>
         {cat.name}

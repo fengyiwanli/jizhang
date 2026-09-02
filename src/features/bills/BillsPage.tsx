@@ -2,12 +2,13 @@
  * 账单页面 — 搜索 + 多维筛选 + 按日期分组列表
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Zap } from 'lucide-react';
+import { Zap, Search, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
 import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
-import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
+import { getCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
 import { MoneyUtils } from '@/core/types';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 import { todayLocal } from '@/core/datetime';
@@ -19,6 +20,23 @@ import type { Account } from '@/domain/entities/Account';
 
 const PAGE_SIZE = 30;
 
+/** 筛选面板状态（面板内 5 个维度） */
+interface FilterState {
+  type: TransactionType | 'all';
+  cat: UUID | 'all';
+  acc: UUID | 'all';
+  tags: string[];
+  from: string;
+  to: string;
+}
+
+const EMPTY_FILTER: FilterState = { type: 'all', cat: 'all', acc: 'all', tags: [], from: '', to: '' };
+
+function isFilterEmpty(f: FilterState): boolean {
+  return f.type === 'all' && f.cat === 'all' && f.acc === 'all'
+    && f.tags.length === 0 && !f.from && !f.to;
+}
+
 export default function BillsPage({ initialTag }: { initialTag?: string }) {
   const categories = useCategoryStore((s) => s.categories);
   const accounts = useAccountStore((s) => s.accounts);
@@ -28,19 +46,35 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
   const [hasMore, setHasMore] = useState(false);
   const offsetRef = useRef(0);
 
-  // 筛选
+  // 关键字：实时筛选
   const [keyword, setKeyword] = useState('');
-  const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all');
-  const [catFilter, setCatFilter] = useState<UUID | 'all'>('all');
-  const [accFilter, setAccFilter] = useState<UUID | 'all'>('all');
-  const [tagFilter, setTagFilter] = useState<string>(initialTag ?? '');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+
+  // 筛选面板：draft = 面板内编辑中；applied = 真正驱动查询
+  const [applied, setApplied] = useState<FilterState>(() => ({
+    ...EMPTY_FILTER,
+    tags: initialTag ? [initialTag] : [],
+  }));
+  const [draft, setDraft] = useState<FilterState>(applied);
   const [showFilters, setShowFilters] = useState(false);
+  const [sheet, setSheet] = useState<'category' | 'account' | null>(null);
+  const [allTags, setAllTags] = useState<string[]>([]);
+
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('bk_search_history') || '[]'); }
     catch { return []; }
   });
+
+  // 标签候选：来自全部交易中已使用过的标签
+  useEffect(() => {
+    const { transactionRepo } = getAppContext();
+    transactionRepo.getAllTags(DEFAULT_LEDGER_ID).then(setAllTags).catch(() => setAllTags([]));
+  }, [transactions]);
+
+  // 展开面板时，把已应用的筛选同步进草稿
+  function toggleFilters() {
+    if (!showFilters) setDraft(applied);
+    setShowFilters(!showFilters);
+  }
 
   function saveSearchHistory(kw: string) {
     const t = kw.trim();
@@ -52,14 +86,14 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
 
   const buildFilter = useCallback(() => ({
     ledgerId: DEFAULT_LEDGER_ID,
-    type: typeFilter === 'all' ? undefined : typeFilter,
-    categoryId: catFilter === 'all' ? undefined : catFilter,
-    accountId: accFilter === 'all' ? undefined : accFilter,
+    type: applied.type === 'all' ? undefined : applied.type,
+    categoryId: applied.cat === 'all' ? undefined : applied.cat,
+    accountId: applied.acc === 'all' ? undefined : applied.acc,
     keyword: keyword || undefined,
-    tags: tagFilter ? [tagFilter] : undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
-  }), [typeFilter, catFilter, accFilter, keyword, tagFilter, dateFrom, dateTo]);
+    tags: applied.tags.length > 0 ? applied.tags : undefined,
+    dateFrom: applied.from || undefined,
+    dateTo: applied.to || undefined,
+  }), [applied, keyword]);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -96,17 +130,32 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
     <div style={{ padding: '12px 16px 80px', maxWidth: 500, margin: '0 auto' }}>
       {/* 搜索栏 */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <input
-          type="text"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') saveSearchHistory(keyword); }}
-          onBlur={() => saveSearchHistory(keyword)}
-          placeholder="搜索备注、分类..."
-          style={searchInputStyle}
-        />
-        <button onClick={() => setShowFilters(!showFilters)} style={filterBtnStyle(showFilters)}>
-          筛选 {showFilters ? '▲' : '▼'}
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search
+            size={15}
+            color="var(--color-text-tertiary)"
+            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+          />
+          <input
+            type="text"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') saveSearchHistory(keyword); }}
+            onBlur={() => saveSearchHistory(keyword)}
+            placeholder="搜索备注、分类..."
+            style={searchInputStyle}
+          />
+        </div>
+        <button onClick={toggleFilters} style={filterBtnStyle(showFilters, !isFilterEmpty(applied))}>
+          <SlidersHorizontal size={14} />
+          筛选
+          <ChevronDown
+            size={14}
+            style={{
+              transition: 'transform 200ms ease',
+              transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)',
+            }}
+          />
         </button>
       </div>
 
@@ -118,7 +167,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
               key={h}
               onClick={() => setKeyword(h)}
               style={{
-                fontSize: 12, color: '#8E8E93', background: '#F5F5F7',
+                fontSize: 12, color: 'var(--color-text-tertiary)', background: 'var(--color-bg-secondary)',
                 padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
               }}
             >
@@ -128,69 +177,139 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
         </div>
       )}
 
-      {/* 筛选器 */}
+      {/* 筛选器 — 卡片容器 + 分组 + chips + 自定义触发器 */}
       {showFilters && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-          <SelectBtn
-            options={[
-              { value: 'all', label: '全部' },
-              { value: 'expense', label: '支出' },
-              { value: 'income', label: '收入' },
-            ]}
-            value={typeFilter}
-            onChange={(v) => setTypeFilter(v as TransactionType | 'all')}
-          />
-          <SelectBtn
-            options={[
-              { value: 'all', label: '全部分类' },
-              ...categories.filter((c) => !c.parentId).map((c) => ({ value: c.id, label: `${c.icon} ${c.name}` })),
-            ]}
-            value={catFilter}
-            onChange={(v) => setCatFilter(v as UUID | 'all')}
-          />
-          <SelectBtn
-            options={[
-              { value: 'all', label: '全部账户' },
-              ...accounts.map((a) => ({ value: a.id, label: `${a.icon ?? ''} ${a.name}` })),
-            ]}
-            value={accFilter}
-            onChange={(v) => setAccFilter(v as UUID | 'all')}
-          />
-          <input
-            type="text"
-            value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
-            placeholder="标签筛选"
-            style={{ padding: '8px 10px', border: 'none', borderRadius: 10, fontSize: 12, background: '#F5F5F7', color: '#1A1A2E', fontFamily: 'inherit', outline: 'none', width: 90 }}
-          />
-          <input
-            type="date"
-            value={dateFrom}
-            max={todayLocal()}
-            onChange={(e) => setDateFrom(e.target.value)}
-            style={dateInputStyle}
-            placeholder="开始日期"
-          />
-          <span style={{ fontSize: 12, color: '#8E8E93', alignSelf: 'center' }}>至</span>
-          <input
-            type="date"
-            value={dateTo}
-            max={todayLocal()}
-            onChange={(e) => setDateTo(e.target.value)}
-            style={dateInputStyle}
-            placeholder="结束日期"
-          />
+        <div style={{
+          background: 'var(--color-card)',
+          borderRadius: 14,
+          padding: 16,
+          border: '0.5px solid var(--color-border)',
+          marginBottom: 12,
+          boxShadow: 'var(--shadow-sm)',
+        }}>
+          {/* 类型 — chips 单选 */}
+          <FilterGroup title="类型">
+            <div style={{ display: 'flex', gap: 8 }}>
+              {([
+                { v: 'all', label: '全部' },
+                { v: 'expense', label: '支出' },
+                { v: 'income', label: '收入' },
+              ] as const).map(({ v, label }) => (
+                <Chip
+                  key={v}
+                  label={label}
+                  selected={draft.type === v}
+                  onClick={() => setDraft({ ...draft, type: v })}
+                />
+              ))}
+            </div>
+          </FilterGroup>
+
+          {/* 分类 / 账户 — 两列并排，自定义触发器 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FilterGroup title="分类">
+              <Trigger
+                text={draft.cat === 'all'
+                  ? '全部分类'
+                  : (() => { const c = getCat(categories, draft.cat); return c ? `${c.icon} ${c.name}` : '全部分类'; })()}
+                placeholder={draft.cat === 'all'}
+                onClick={() => setSheet('category')}
+              />
+            </FilterGroup>
+            <FilterGroup title="账户">
+              <Trigger
+                text={draft.acc === 'all'
+                  ? '全部账户'
+                  : (() => { const a = accounts.find((x) => x.id === draft.acc); return a ? `${a.icon ?? ''} ${a.name}`.trim() : '全部账户'; })()}
+                placeholder={draft.acc === 'all'}
+                onClick={() => setSheet('account')}
+              />
+            </FilterGroup>
+          </div>
+
+          {/* 日期区间 — 两个等宽触发器 + 短横线 */}
+          <FilterGroup title="日期区间">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <DateTrigger
+                value={draft.from}
+                placeholder="开始日期"
+                max={todayLocal()}
+                onChange={(v) => setDraft({ ...draft, from: v })}
+              />
+              <span style={{ flexShrink: 0, width: 10, height: 1, background: 'var(--color-text-disabled)' }} />
+              <DateTrigger
+                value={draft.to}
+                placeholder="结束日期"
+                max={todayLocal()}
+                onChange={(v) => setDraft({ ...draft, to: v })}
+              />
+            </div>
+          </FilterGroup>
+
+          {/* 标签 — chips 多选 */}
+          <FilterGroup title="标签">
+            {allTags.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', padding: '8px 0' }}>
+                暂无标签，记账时可添加
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {allTags.map((t) => {
+                  const selected = draft.tags.includes(t);
+                  return (
+                    <Chip
+                      key={t}
+                      label={`#${t}`}
+                      selected={selected}
+                      variant="tag"
+                      onClick={() => setDraft({
+                        ...draft,
+                        tags: selected ? draft.tags.filter((x) => x !== t) : [...draft.tags, t],
+                      })}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </FilterGroup>
+
+          {/* 操作按钮 */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <button
+              className="btn-secondary"
+              style={{ flex: 1 }}
+              onClick={() => {
+                setDraft(EMPTY_FILTER);
+                setApplied(EMPTY_FILTER);
+              }}
+            >
+              重置
+            </button>
+            <button
+              className="btn-primary"
+              style={{ flex: 2 }}
+              onClick={() => setApplied(draft)}
+            >
+              查看结果
+            </button>
+          </div>
         </div>
       )}
 
       {/* 列表 */}
-      {loading && transactions.length === 0 && <p style={{ textAlign: 'center', color: '#8E8E93', padding: 20 }}>加载中...</p>}
+      {loading && transactions.length === 0 && <p style={{ textAlign: 'center', color: 'var(--color-text-tertiary)', padding: 20 }}>加载中...</p>}
 
       {!loading && transactions.length === 0 && (
-        <div style={{ textAlign: 'center', padding: 40, color: '#8E8E93' }}>
-          <div style={{ fontSize: 36 }}>📭</div>
-          <div style={{ marginTop: 8 }}>{keyword || tagFilter ? '没有找到匹配的交易' : '没有找到交易'}</div>
-          {(keyword || tagFilter) && <div style={{ fontSize: 12, marginTop: 4 }}>试试更换关键字或清除筛选</div>}
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-tertiary)' }}>
+          <Search size={40} strokeWidth={1.2} color="#C7C7CC" />
+          <div style={{ marginTop: 8, fontSize: 14, color: 'var(--color-text-secondary)' }}>
+            {keyword || !isFilterEmpty(applied) ? '没有找到匹配的交易' : '还没有任何交易'}
+          </div>
+          {(keyword || !isFilterEmpty(applied)) && (
+            <div style={{ fontSize: 12, marginTop: 4, color: 'var(--color-text-tertiary)' }}>
+              试试更换关键字或清除筛选条件
+            </div>
+          )}
         </div>
       )}
 
@@ -205,14 +324,14 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
             {/* 日期头 */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '6px 4px', borderBottom: '1px solid #F0F0F0', marginBottom: 6,
+              padding: '6px 4px', borderBottom: '1px solid var(--color-divider)', marginBottom: 6,
             }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1A2E' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>
                 {formatDate(date)}
               </span>
               <span style={{
                 fontSize: 12, fontWeight: 500,
-                color: dayTotal > 0 ? '#5FBB97' : dayTotal < 0 ? '#E07B6C' : '#8E8E93',
+                color: dayTotal > 0 ? 'var(--color-income)' : dayTotal < 0 ? 'var(--color-expense)' : 'var(--color-text-tertiary)',
               }}>
                 {dayTotal >= 0 ? '+' : ''}¥{(Math.abs(dayTotal) / 100).toFixed(2)}
               </span>
@@ -246,19 +365,47 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
       {/* 加载更多 */}
       {hasMore && (
         <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
-          <button
-            onClick={loadMore}
-            disabled={loading}
-            style={{
-              padding: '10px 32px', border: '1px solid #E0E0E0', borderRadius: 20,
-              background: '#FFF', color: '#1A1A2E', fontSize: 13,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', opacity: loading ? 0.5 : 1,
-            }}
-          >
+          <button className="btn-secondary" onClick={loadMore} disabled={loading}>
             {loading ? '加载中...' : '加载更多'}
           </button>
         </div>
+      )}
+
+      {/* 底部弹层：分类 / 账户 */}
+      {sheet === 'category' && (
+        <BottomSheet title="选择分类" onClose={() => setSheet(null)}>
+          <SheetOption
+            label="全部分类"
+            selected={draft.cat === 'all'}
+            onSelect={() => { setDraft({ ...draft, cat: 'all' }); setSheet(null); }}
+          />
+          {categories.filter((c) => !c.parentId).map((c) => (
+            <SheetOption
+              key={c.id}
+              label={`${c.icon} ${c.name}`}
+              selected={draft.cat === c.id}
+              onSelect={() => { setDraft({ ...draft, cat: c.id }); setSheet(null); }}
+            />
+          ))}
+        </BottomSheet>
+      )}
+
+      {sheet === 'account' && (
+        <BottomSheet title="选择账户" onClose={() => setSheet(null)}>
+          <SheetOption
+            label="全部账户"
+            selected={draft.acc === 'all'}
+            onSelect={() => { setDraft({ ...draft, acc: 'all' }); setSheet(null); }}
+          />
+          {accounts.map((a) => (
+            <SheetOption
+              key={a.id}
+              label={`${a.icon ?? ''} ${a.name}`.trim()}
+              selected={draft.acc === a.id}
+              onSelect={() => { setDraft({ ...draft, acc: a.id }); setSheet(null); }}
+            />
+          ))}
+        </BottomSheet>
       )}
     </div>
   );
@@ -291,23 +438,24 @@ function TxItem({ categoryName, name, note, time, account, amount, type, tags, k
   const color = getCategoryColor(categoryName ?? '');
 
   return (
-    <div style={{
+    <div className="row-press" style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '10px 8px', borderBottom: '1px solid #F5F5F7',
+      padding: '10px 8px', borderBottom: '1px solid var(--color-bg-secondary)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 8,
-          background: '#F5F5F7',
+          /* 图标底色跟随分类色，10% 透明度，列表更有层次 */
+          background: tintColor(color),
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <IconComp size={16} strokeWidth={1.8} color={color} />
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {highlight(name, keyword ?? '')}
           </div>
-          <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {time}
             {note && <> · {highlight(note, keyword ?? '')}</>}
             {account && ` · ${account}`}
@@ -317,7 +465,7 @@ function TxItem({ categoryName, name, note, time, account, amount, type, tags, k
       </div>
       <span style={{
         fontWeight: 600, fontSize: 14, marginLeft: 12, whiteSpace: 'nowrap',
-        color: isExpense ? '#E07B6C' : isIncome ? '#5FBB97' : '#3498DB',
+        color: isExpense ? 'var(--color-expense)' : isIncome ? 'var(--color-income)' : 'var(--color-transfer)',
         fontVariantNumeric: 'tabular-nums',
       }}>
         {isExpense ? '-' : isIncome ? '+' : ''}{MoneyUtils.format(amount).replace('¥', '')}
@@ -326,20 +474,102 @@ function TxItem({ categoryName, name, note, time, account, amount, type, tags, k
   );
 }
 
-function SelectBtn({ options, value, onChange }: {
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
+/** 筛选维度小标题 */
+function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{
+        fontSize: 11, color: 'var(--color-text-secondary)', fontWeight: 500,
+        marginBottom: 8, letterSpacing: 0.3,
+      }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** 筛选 chip：default = 主色实心选中；tag = 淡色选中 */
+function Chip({ label, selected, onClick, variant = 'default' }: {
+  label: string; selected: boolean; onClick: () => void; variant?: 'default' | 'tag';
+}) {
+  const activeStyle = variant === 'tag'
+    ? { background: 'var(--color-primary-light)', color: 'var(--color-primary)' }
+    : { background: 'var(--color-primary)', color: '#FFF' };
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '8px 16px',
+        borderRadius: 10,
+        minHeight: 36,
+        border: 'none',
+        fontFamily: 'inherit',
+        fontSize: 13,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        background: 'var(--color-bg-secondary)',
+        color: 'var(--color-text-secondary)',
+        ...(selected ? activeStyle : null),
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** 自定义触发器：替代原生 <select>，右侧带 chevron */
+function Trigger({ text, placeholder, onClick }: {
+  text: string; placeholder: boolean; onClick: () => void;
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{
-      padding: '8px 10px', border: 'none', borderRadius: 10,
-      fontSize: 12, color: '#1A1A2E', background: '#F5F5F7', fontFamily: 'inherit',
-    }}>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', minHeight: 40,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+        padding: '11px 12px',
+        border: 'none',
+        borderRadius: 10,
+        background: 'var(--color-bg-secondary)',
+        fontFamily: 'inherit',
+        fontSize: 13,
+        cursor: 'pointer',
+        color: placeholder ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)',
+        overflow: 'hidden',
+      }}
+    >
+      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>
+        {text}
+      </span>
+      <ChevronDown size={13} color="var(--color-text-tertiary)" style={{ flexShrink: 0 }} />
+    </button>
+  );
+}
+
+/**
+ * 日期触发器：外观自定义，内部叠一个 opacity:0 的原生 date input
+ * 保留原生日期弹层能力，同时绕开 global.css 的 font-size: 16px !important
+ */
+function DateTrigger({ value, placeholder, max, onChange }: {
+  value: string; placeholder: string; max?: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+      <Trigger text={value || placeholder} placeholder={!value} onClick={() => { /* 由透明 input 接管点击 */ }} />
+      <input
+        type="date"
+        value={value}
+        max={max}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%',
+          opacity: 0, cursor: 'pointer',
+        }}
+      />
+    </div>
   );
 }
 
@@ -368,23 +598,31 @@ function formatDate(dateStr: string): string {
   return `${label} 周${weekdays[d.getDay()]}`;
 }
 
-const dateInputStyle: React.CSSProperties = {
-  padding: '8px 10px', border: 'none', borderRadius: 10,
-  fontSize: 11, color: '#1A1A2E', outline: 'none', fontFamily: 'inherit',
-  background: '#F5F5F7',
-};
-
 const searchInputStyle: React.CSSProperties = {
-  flex: 1, padding: '10px 14px', border: '1px solid #E8E8ED', borderRadius: 12,
-  fontSize: 14, outline: 'none', fontFamily: 'inherit',
-  background: '#FFF',
+  width: '100%',
+  padding: '11px 14px 11px 36px',
+  border: '1px solid var(--color-border)',
+  borderRadius: 12,
+  fontSize: 14,
+  outline: 'none',
+  fontFamily: 'inherit',
+  background: 'var(--color-card)',
+  color: 'var(--color-text-primary)',
 };
 
-function filterBtnStyle(active: boolean): React.CSSProperties {
+function filterBtnStyle(active: boolean, hasActive: boolean): React.CSSProperties {
   return {
-    padding: '10px 14px', border: 'none',
-    borderRadius: 12, background: active ? '#E8FAF8' : '#F5F5F7',
-    color: active ? '#4ECDC4' : '#8E8E93', fontSize: 13,
-    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '10px 14px',
+    border: 'none',
+    borderRadius: 12,
+    background: active ? 'var(--color-primary-light)' : 'var(--color-bg-secondary)',
+    color: active || hasActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+    fontSize: 13,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
   };
 }

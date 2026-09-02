@@ -7,6 +7,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ArrowDown } from 'lucide-react';
 import CategoryGrid from '@/shared/components/CategoryGrid';
+import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
@@ -32,7 +33,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const [dateStr, setDateStr] = useState(todayLocal());
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [pickerTarget, setPickerTarget] = useState<'from' | 'to' | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<'from' | 'to' | 'main' | null>(null);
   const [balances, setBalances] = useState<Record<string, number>>({});
 
   // 账户余额走 SQL 聚合
@@ -45,7 +46,8 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const amountRef = useRef<HTMLInputElement>(null);
   const amountYuan = parseFloat(amountStr) || 0;
   const typeCategories = categories.filter((c) => c.type === type);
-  const accentColor = type === 'expense' ? '#E07B6C' : type === 'income' ? '#5FBB97' : '#6C7AE0';
+  const accentColor = type === 'expense' ? 'var(--color-expense)' : type === 'income' ? 'var(--color-income)' : 'var(--color-transfer)';
+  const curAccount = accounts.find((a) => a.id === (accountId || accounts[0]?.id));
 
   function handleAmountChange(raw: string) {
     let v = raw.replace(/[^\d.]/g, '');
@@ -108,22 +110,22 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const isToday = dateStr === todayLocal();
 
   return (
-    <div style={{ background: '#FFF', borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--color-card)', borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
       {/* Header: 日期 + 类型切换 */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '24px 24px 0',
       }}>
         <div style={{ position: 'relative', cursor: 'pointer' }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#1A1A2E', letterSpacing: -0.3, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', letterSpacing: -0.3, display: 'flex', alignItems: 'center', gap: 6 }}>
             {`${dateObj.getMonth() + 1}月${dateObj.getDate()}日`}
             {!isToday && (
-              <span style={{ fontSize: 11, fontWeight: 500, color: '#4ECDC4', background: '#E8F8F5', padding: '2px 6px', borderRadius: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-primary)', background: 'var(--color-primary-light)', padding: '2px 6px', borderRadius: 6 }}>
                 补记
               </span>
             )}
           </div>
-          <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginTop: 2 }}>
             星期{weekdays[dateObj.getDay()]}
           </div>
           {/* 透明日期选择器覆盖 */}
@@ -140,7 +142,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
 
         {/* 分段控制器 */}
         <div style={{
-          display: 'flex', background: '#F5F5F7', borderRadius: 10, padding: 2,
+          display: 'flex', background: 'var(--color-bg-secondary)', borderRadius: 10, padding: 2,
         }}>
           <SegBtn active={type === 'expense'} onClick={() => { setType('expense'); setCategoryId(null); }}>
             支出
@@ -204,11 +206,11 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
       {/* 转账：源账户 → 目标账户；收支：分类网格 */}
       {type === 'transfer' ? (
         <div style={{
-          borderTop: '1px solid #F0F0F2',
+          borderTop: '1px solid var(--color-divider)',
           padding: '20px 20px 8px',
         }}>
           <div style={{
-            fontSize: 13, color: '#8E8E93',
+            fontSize: 13, color: 'var(--color-text-tertiary)',
             marginBottom: 12, paddingLeft: 4, fontWeight: 500, letterSpacing: 0.3,
           }}>
             转账账户
@@ -221,7 +223,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
               balance={balances[accountId || accounts[0]?.id || ''] ?? 0}
               onClick={() => setPickerTarget('from')}
             />
-            <ArrowDown size={18} color="#6C7AE0" style={{ flexShrink: 0 }} />
+            <ArrowDown size={18} color="var(--color-transfer)" style={{ flexShrink: 0 }} />
             {/* 转入卡片 */}
             <AccountCard
               account={accounts.find((a) => a.id === toAccountId)}
@@ -234,13 +236,13 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
         </div>
       ) : (
         <div style={{
-          borderTop: '1px solid #F0F0F2',
+          borderTop: '1px solid var(--color-divider)',
           padding: '20px 16px 8px',
           maxHeight: 300,
           overflowY: 'auto',
         }}>
           <div style={{
-            fontSize: 13, color: '#8E8E93',
+            fontSize: 13, color: 'var(--color-text-tertiary)',
             marginBottom: 10, paddingLeft: 4, fontWeight: 500, letterSpacing: 0.3,
           }}>
             选择分类
@@ -250,12 +252,12 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
       )}
 
       {/* 标签 */}
-      <div style={{ borderTop: '1px solid #F0F0F2', padding: '10px 16px 0' }}>
+      <div style={{ borderTop: '1px solid var(--color-divider)', padding: '10px 16px 0' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
           {tags.map((t) => (
             <span key={t} style={{
               display: 'inline-flex', alignItems: 'center', gap: 3,
-              background: '#E8F8F5', color: '#2BAF9F', fontSize: 12,
+              background: 'var(--color-primary-light)', color: '#2BAF9F', fontSize: 12,
               padding: '3px 8px', borderRadius: 12, fontWeight: 500,
             }}>
               #{t}
@@ -279,7 +281,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
             placeholder={tags.length === 0 ? '标签（空格分隔）' : '继续添加'}
             style={{
               flex: 1, minWidth: 80, border: 'none', outline: 'none',
-              fontSize: 12, padding: '6px 0', background: 'transparent', color: '#1A1A2E',
+              fontSize: 12, padding: '6px 0', background: 'transparent', color: 'var(--color-text-primary)',
               fontFamily: 'inherit',
             }}
           />
@@ -288,43 +290,34 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
 
       {/* 底部操作区 */}
       <div style={{
-        borderTop: '1px solid #F0F0F2',
+        borderTop: '1px solid var(--color-divider)',
         padding: '12px 12px 16px',
         display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
       }}>
         {/* 账户选择（转账时隐藏，转账在中间区域已选） */}
         {type !== 'transfer' && (
-          <div style={{ position: 'relative', flexShrink: 0, maxWidth: '40%' }}>
-            <select
-              value={accountId || (accounts[0]?.id ?? '')}
-              onChange={(e) => setAccountId(e.target.value)}
-              style={{
-                width: '100%', minWidth: 76,
-                padding: '11px 26px 11px 10px',
-                border: 'none',
-                borderRadius: 12,
-                background: '#F5F5F7',
-                fontSize: 12,
-                color: '#1A1A2E',
-                outline: 'none',
-                appearance: 'none',
-                cursor: 'pointer',
-                fontWeight: 500,
-                textOverflow: 'ellipsis',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.icon ?? ''} {a.name}</option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              color="#8E8E93"
-              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-            />
-          </div>
+          <button
+            onClick={() => setPickerTarget('main')}
+            style={{
+              flexShrink: 0, maxWidth: '40%', minWidth: 76, minHeight: 44,
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '11px 10px',
+              border: 'none',
+              borderRadius: 12,
+              background: 'var(--color-bg-secondary)',
+              fontSize: 13,
+              color: 'var(--color-text-primary)',
+              outline: 'none',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {curAccount ? `${curAccount.icon ?? ''} ${curAccount.name}`.trim() : '选择账户'}
+            </span>
+            <ChevronDown size={14} color="var(--color-text-tertiary)" style={{ flexShrink: 0 }} />
+          </button>
         )}
 
         {/* 备注 — 自适应剩余空间 */}
@@ -339,43 +332,39 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
             padding: '11px 12px',
             border: 'none',
             borderRadius: 12,
-            background: '#F5F5F7',
+            background: 'var(--color-bg-secondary)',
             fontSize: 13,
             outline: 'none',
-            color: '#1A1A2E',
+            color: 'var(--color-text-primary)',
             letterSpacing: 0.2,
           }}
         />
 
         {/* 保存按钮 — 不压缩 */}
         <button
+          className="btn-accent"
           onClick={handleSave}
           disabled={!canSave || saving}
           style={{
             flex: '0 0 auto',
-            padding: '11px 20px',
-            border: 'none',
-            borderRadius: 12,
-            background: canSave ? accentColor : '#E8E8ED',
-            color: canSave ? '#FFF' : '#C0C0C0',
-            fontSize: 14, fontWeight: 600,
-            cursor: canSave && !saving ? 'pointer' : 'not-allowed',
-            transition: 'all 200ms ease',
+            background: canSave ? accentColor : undefined,
             letterSpacing: 0.3,
-            whiteSpace: 'nowrap',
           }}
         >
           {saving ? '...' : '保存'}
         </button>
       </div>
 
-      {/* 账户选择弹层（转账） */}
+      {/* 账户选择弹层 */}
       {pickerTarget && (
         <AccountPicker
           accounts={pickerTarget === 'to' ? accounts.filter((a) => a.id !== (accountId || accounts[0]?.id)) : accounts}
+          selectedId={pickerTarget === 'from' ? (accountId || accounts[0]?.id)
+            : pickerTarget === 'to' ? toAccountId
+            : (accountId || accounts[0]?.id)}
           onSelect={(id) => {
-            if (pickerTarget === 'from') setAccountId(id);
-            else setToAccountId(id);
+            if (pickerTarget === 'to') setToAccountId(id);
+            else setAccountId(id);
             setPickerTarget(null);
           }}
           onClose={() => setPickerTarget(null)}
@@ -394,18 +383,18 @@ function AccountCard({ account, label, balance, onClick, placeholder }: {
 }) {
   return (
     <button onClick={onClick} style={{
-      flex: 1, minWidth: 0, border: '1px solid #E8E8ED', borderRadius: 14,
-      background: '#F5F5F7', padding: '14px 12px', cursor: 'pointer',
+      flex: 1, minWidth: 0, border: '1px solid var(--color-border)', borderRadius: 14,
+      background: 'var(--color-bg-secondary)', padding: '14px 12px', cursor: 'pointer',
       textAlign: 'left', fontFamily: 'inherit',
     }}>
       <div style={{ fontSize: 10, color: '#B0B0B0', marginBottom: 6 }}>{label}</div>
       {account ? (
         <>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {account.icon ?? ''} {account.name}
           </div>
           {balance !== null && (
-            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+            <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
               ¥{(balance / 100).toFixed(2)}
             </div>
           )}
@@ -417,33 +406,24 @@ function AccountCard({ account, label, balance, onClick, placeholder }: {
   );
 }
 
-function AccountPicker({ accounts, onSelect, onClose }: {
+function AccountPicker({ accounts, selectedId, onSelect, onClose }: {
   accounts: { id: string; name: string; icon: string | null }[];
+  selectedId?: string;
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
   return (
-    <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.35)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-    }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
-        background: '#FFF', borderRadius: '20px 20px 0 0', width: '100%',
-        maxWidth: 500, maxHeight: '70vh', overflowY: 'auto', padding: '16px 16px 28px',
-      }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1A2E', marginBottom: 12 }}>选择账户</div>
-        {accounts.map((a) => (
-          <button key={a.id} onClick={() => onSelect(a.id)} style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 12px',
-            border: 'none', borderBottom: '1px solid #F5F5F7', background: 'transparent',
-            cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-          }}>
-            <span style={{ fontSize: 20 }}>{a.icon ?? '💳'}</span>
-            <span style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E', flex: 1 }}>{a.name}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <BottomSheet title="选择账户" onClose={onClose}>
+      {accounts.map((a) => (
+        <SheetOption
+          key={a.id}
+          icon={<span style={{ fontSize: 20 }}>{a.icon ?? '💳'}</span>}
+          label={a.name}
+          selected={a.id === selectedId}
+          onSelect={() => onSelect(a.id)}
+        />
+      ))}
+    </BottomSheet>
   );
 }
 
@@ -453,15 +433,15 @@ function SegBtn({ active, onClick, children }: {
   return (
     <button onClick={onClick} style={{
       padding: '8px 14px', border: 'none', borderRadius: 9,
-      background: active ? '#FFF' : 'transparent',
-      color: active ? '#1A1A2E' : '#8E8E93',
+      background: active ? 'var(--color-card)' : 'transparent',
+      color: active ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
       fontWeight: active ? 600 : 400,
       fontSize: 13,
       cursor: 'pointer',
       transition: 'all 200ms ease',
-      boxShadow: active ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
       letterSpacing: 0.3,
       whiteSpace: 'nowrap',
+      boxShadow: active ? 'var(--shadow-seg)' : 'none',
     }}>
       {children}
     </button>

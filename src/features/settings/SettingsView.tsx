@@ -2,7 +2,8 @@
  * 设置页面 — 独立全屏页面
  */
 import { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
 import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
 import { getAppContext } from '@/data/init';
@@ -28,6 +29,7 @@ export default function SettingsView({
   const categories = useCategoryStore((s) => s.categories);
   const [budgetStr, setBudgetStr] = useState(budgetInYuan !== null ? String(budgetInYuan) : '');
   const [showClear, setShowClear] = useState(false);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
 
   const expenseRoots = categories.filter((c) => c.type === 'expense' && !c.parentId);
@@ -52,22 +54,22 @@ export default function SettingsView({
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F5F7' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg-secondary)' }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center',
         paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))',
         paddingRight: 12, paddingBottom: 12, paddingLeft: 12,
-        background: '#F5F5F7', position: 'sticky', top: 0, zIndex: 10,
+        background: 'var(--color-bg-secondary)', position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={onBack} style={{
-          width: 34, height: 34, borderRadius: 17, background: '#FFF',
-          border: '1px solid #E8E8ED', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 34, height: 34, borderRadius: 17, background: 'var(--color-card)',
+          border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', marginRight: 8,
         }}>
-          <ArrowLeft size={17} color="#1A1A2E" />
+          <ArrowLeft size={17} color="var(--color-text-primary)" />
         </button>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1A1A2E', margin: 0, letterSpacing: -0.3 }}>设置</h1>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, letterSpacing: -0.3 }}>设置</h1>
       </div>
 
       {/* Content */}
@@ -100,7 +102,7 @@ export default function SettingsView({
           <div style={{ ...descStyle, marginBottom: 4 }}>为支出分类单独设预算额度（留空则不限）</div>
           {expenseRoots.map((c) => (
             <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-              <span style={{ fontSize: 13, color: '#1A1A2E', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span>{c.icon ?? '📦'}</span> {c.name}
               </span>
               <input
@@ -124,22 +126,50 @@ export default function SettingsView({
               <div style={titleStyle}>默认记账账户</div>
               <div style={descStyle}>新建交易时默认选中的账户</div>
             </div>
-            <select
-              value={defaultAccountId ?? ''}
-              onChange={(e) => defaultAccOnChange(e.target.value || null)}
-              style={selectStyle}
+            <button
+              onClick={() => setShowAccountPicker(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                maxWidth: 130, minWidth: 0,
+                padding: '8px 10px', border: '1px solid var(--color-border)', borderRadius: 8,
+                background: 'var(--color-card)', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 12, color: 'var(--color-text-primary)',
+              }}
             >
-              <option value="">不指定</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.icon ?? ''} {a.name}</option>
-              ))}
-            </select>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {defaultAccountId
+                  ? accounts.find((a) => a.id === defaultAccountId)
+                    ? `${accounts.find((a) => a.id === defaultAccountId)!.icon ?? ''} ${accounts.find((a) => a.id === defaultAccountId)!.name}`
+                    : '不指定'
+                  : '不指定'}
+              </span>
+              <ChevronDown size={13} color="var(--color-text-tertiary)" style={{ flexShrink: 0 }} />
+            </button>
           </div>
         </Section>
 
+        {/* 默认账户选择弹层 */}
+        {showAccountPicker && (
+          <BottomSheet title="默认记账账户" onClose={() => setShowAccountPicker(false)}>
+            <SheetOption
+              label="不指定"
+              selected={!defaultAccountId}
+              onSelect={() => { defaultAccOnChange(null); setShowAccountPicker(false); }}
+            />
+            {accounts.map((a) => (
+              <SheetOption
+                key={a.id}
+                label={`${a.icon ?? ''} ${a.name}`.trim()}
+                selected={defaultAccountId === a.id}
+                onSelect={() => { defaultAccOnChange(a.id); setShowAccountPicker(false); }}
+              />
+            ))}
+          </BottomSheet>
+        )}
+
         {/* 固定收支 */}
         <Section>
-          <div style={{ ...rowStyle, cursor: 'pointer' }} onClick={onOpenRecurring}>
+          <div className="row-press" style={{ ...rowStyle, cursor: 'pointer', borderRadius: 8 }} onClick={onOpenRecurring}>
             <div style={{ flex: 1 }}>
               <div style={titleStyle}>固定收支</div>
               <div style={descStyle}>设置每日/每周/每月/每年的固定收入或支出</div>
@@ -158,10 +188,10 @@ export default function SettingsView({
 
         {/* 数据管理 */}
         <Section>
-          <div style={{ cursor: 'pointer' }} onClick={() => setShowClear(!showClear)}>
+          <div className="row-press" style={{ cursor: 'pointer', borderRadius: 8 }} onClick={() => setShowClear(!showClear)}>
             <div style={rowStyle}>
               <div style={{ flex: 1 }}>
-                <div style={{...titleStyle, color: '#E07B6C'}}>清除所有数据</div>
+                <div style={{...titleStyle, color: 'var(--color-expense)'}}>清除所有数据</div>
                 <div style={descStyle}>重置为初始状态，此操作不可撤销</div>
               </div>
               <ArrowLeft size={14} color="#D1D1D6" style={{
@@ -170,10 +200,10 @@ export default function SettingsView({
               }} />
             </div>
             {showClear && (
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #F0F0F2' }}>
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--color-divider)' }}>
                 <button onClick={onClearData} style={{
-                  width: '100%', padding: '10px 0', border: 'none', borderRadius: 10,
-                  background: '#FFE8E5', color: '#E07B6C', fontSize: 13, fontWeight: 600,
+                  width: '100%', minHeight: 44, padding: '10px 0', border: 'none', borderRadius: 10,
+                  background: '#FFE8E5', color: 'var(--color-expense)', fontSize: 13, fontWeight: 600,
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}>
                   确认清除全部数据
@@ -200,7 +230,7 @@ export default function SettingsView({
 function Section({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      background: '#FFF', borderRadius: 14, padding: '14px 16px',
+      background: 'var(--color-card)', borderRadius: 14, padding: '14px 16px',
       marginBottom: 8, boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
     }}>
       {children}
@@ -212,14 +242,9 @@ const rowStyle: React.CSSProperties = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
   overflow: 'hidden',
 };
-const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: '#1A1A2E', marginBottom: 2 };
-const descStyle: React.CSSProperties = { fontSize: 11, color: '#8E8E93', lineHeight: 1.5 };
+const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 };
+const descStyle: React.CSSProperties = { fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.5 };
 const amountInputStyle: React.CSSProperties = {
-  width: 70, padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8,
-  fontSize: 14, textAlign: 'center', outline: 'none', fontFamily: 'inherit', color: '#1A1A2E',
-};
-const selectStyle: React.CSSProperties = {
-  padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8,
-  fontSize: 12, outline: 'none', fontFamily: 'inherit', color: '#1A1A2E', background: '#FFF',
-  maxWidth: 130, minWidth: 0,
+  width: 70, padding: '8px 10px', border: '1px solid var(--color-border)', borderRadius: 8,
+  fontSize: 14, textAlign: 'center', outline: 'none', fontFamily: 'inherit', color: 'var(--color-text-primary)',
 };

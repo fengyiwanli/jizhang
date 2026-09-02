@@ -89,14 +89,20 @@ function AssetsBar({ accounts, balances, onAccountClick }: {
   return (
     <div style={{
       margin: '16px 16px 0', padding: '20px 20px',
-      background: 'linear-gradient(145deg, #4ECDC4 0%, #3DBDB5 100%)',
-      borderRadius: 20, color: '#FFF',
+      background: 'linear-gradient(145deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
+      borderRadius: 20, color: 'var(--color-card)',
       boxShadow: '0 4px 20px rgba(78,205,196,0.25)',
     }}>
       <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>
         总资产
       </div>
-      <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: -0.5, fontVariantNumeric: 'tabular-nums', marginBottom: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {/* 金额加载完成时渐入 */}
+      <div key={total} style={{
+        fontSize: 32, fontWeight: 700, letterSpacing: -0.5,
+        fontVariantNumeric: 'tabular-nums', marginBottom: 14,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        animation: 'fadeUp 300ms ease',
+      }}>
         ¥{(total / 100).toFixed(2)}
       </div>
       {/* 逐账户展示 */}
@@ -106,7 +112,7 @@ function AssetsBar({ accounts, balances, onAccountClick }: {
             : acc.type === 'credit' ? CreditCard
             : acc.type === 'bank' ? Building2 : Smartphone;
           return (
-          <div key={acc.id} onClick={() => onAccountClick?.(acc.id)} style={{ cursor: 'pointer' }}>
+          <div key={acc.id} className="press-soft" onClick={() => onAccountClick?.(acc.id)} style={{ cursor: 'pointer', borderRadius: 8, padding: '2px 4px', margin: '-2px -4px' }}>
             <div style={{ fontSize: 10, opacity: 0.7, letterSpacing: 0.3, display: 'flex', alignItems: 'center', gap: 3 }}>
               <AccIcon size={12} strokeWidth={2} /> {acc.name}
             </div>
@@ -130,20 +136,20 @@ function BudgetBar({ spent, budgetInYuan }: {
   const budget = Math.round(budgetInYuan * 100);
   const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
   const remain = budget - spent;
-  const color = pct < 80 ? '#4ECDC4' : pct <= 100 ? '#FF9F43' : '#E07B6C';
+  const color = pct < 80 ? 'var(--color-primary)' : pct <= 100 ? '#FF9F43' : 'var(--color-expense)';
   const overSpent = remain < 0;
 
   return (
     <div style={{
       margin: '10px 16px 0', padding: '14px 20px',
-      background: '#FFF', borderRadius: 16,
+      background: 'var(--color-card)', borderRadius: 16,
       boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1A2E' }}>本月预算</span>
-        <span style={{ fontSize: 12, color: '#8E8E93' }}>{pct}%</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }}>本月预算</span>
+        <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{pct}%</span>
       </div>
-      <div style={{ height: 8, borderRadius: 4, background: '#F0F0F2', overflow: 'hidden' }}>
+      <div style={{ height: 8, borderRadius: 4, background: 'var(--color-divider)', overflow: 'hidden' }}>
         <div style={{
           height: '100%', borderRadius: 4,
           width: `${Math.min(pct, 100)}%`,
@@ -152,10 +158,10 @@ function BudgetBar({ spent, budgetInYuan }: {
         }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-        <span style={{ fontSize: 12, color: '#8E8E93' }}>
+        <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
           已用 <span style={{ color: color, fontWeight: 600 }}>¥{(spent / 100).toFixed(2)}</span> / ¥{(budget / 100).toFixed(2)}
         </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: overSpent ? '#E07B6C' : '#8E8E93' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: overSpent ? 'var(--color-expense)' : 'var(--color-text-secondary)' }}>
           {overSpent ? `已超支 ¥${(-remain / 100).toFixed(2)}` : `剩余 ¥${(remain / 100).toFixed(2)}`}
         </span>
       </div>
@@ -169,15 +175,15 @@ function TodayBar({ todayData }: { todayData: { expense: number; income: number;
   return (
     <div style={{
       margin: '10px 16px', padding: '14px 20px',
-      background: '#FFF', borderRadius: 16,
+      background: 'var(--color-card)', borderRadius: 16,
       display: 'flex', justifyContent: 'space-around',
       boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
     }}>
-      <TodayBlock label="今日支出" value={todayData.expense} color="#E07B6C" />
-      <div style={{ width: 1, background: '#F0F0F2' }} />
-      <TodayBlock label="今日收入" value={todayData.income} color="#5FBB97" />
-      <div style={{ width: 1, background: '#F0F0F2' }} />
-      <TodayBlock label="笔数" value={todayData.count} color="#1A1A2E" isCount />
+      <TodayBlock label="今日支出" value={todayData.expense} color="var(--color-expense)" />
+      <div style={{ width: 1, background: 'var(--color-divider)' }} />
+      <TodayBlock label="今日收入" value={todayData.income} color="var(--color-income)" />
+      <div style={{ width: 1, background: 'var(--color-divider)' }} />
+      <TodayBlock label="笔数" value={todayData.count} color="var(--color-text-primary)" isCount />
     </div>
   );
 }
@@ -187,7 +193,7 @@ function TodayBlock({ label, value, color, isCount }: {
 }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 11, color: '#8E8E93', letterSpacing: 0.3 }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', letterSpacing: 0.3 }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 700, color, marginTop: 4, letterSpacing: -0.3, fontVariantNumeric: 'tabular-nums' }}>
         {isCount ? value : `¥${(value / 100).toFixed(2)}`}
       </div>

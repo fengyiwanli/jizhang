@@ -181,6 +181,30 @@ export class TransactionRepository implements ITransactionRepository {
     return rows[0]?.cnt ?? 0;
   }
 
+  /** 获取账本内使用过的全部标签（去重，按字典序） */
+  async getAllTags(ledgerId: UUID): Promise<string[]> {
+    const rows = await this.db.query<{ tags: string }>(
+      'SELECT DISTINCT tags FROM transactions WHERE deleted_at IS NULL AND ledger_id = ?',
+      [ledgerId],
+    );
+
+    const set = new Set<string>();
+    for (const row of rows) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(row.tags || '[]');
+      } catch {
+        continue;
+      }
+      if (Array.isArray(parsed)) {
+        for (const t of parsed) {
+          if (typeof t === 'string' && t.trim()) set.add(t.trim());
+        }
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  }
+
   // --- 工具方法 ---
 
   private buildFilterClauses(filter: TransactionFilter): {

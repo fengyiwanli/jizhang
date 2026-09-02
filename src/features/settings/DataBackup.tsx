@@ -111,15 +111,15 @@ export default function DataBackup() {
 
   return (
     <div>
-      <div style={{ fontSize: 11, color: '#8E8E93', lineHeight: 1.6, marginBottom: 12 }}>
+      <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 12 }}>
         完整备份所有账单、账户、分类和固定收支，可随时恢复。换手机或重装后导入即可还原。
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={exportBackup} disabled={busy} style={primaryBtn}>
+        <button className="btn-primary" onClick={exportBackup} disabled={busy} style={{ flex: 1, minHeight: 44 }}>
           📤 导出备份
         </button>
-        <button onClick={() => fileRef.current?.click()} disabled={busy} style={secondaryBtn}>
+        <button className="btn-secondary" onClick={() => fileRef.current?.click()} disabled={busy} style={{ flex: 1, minHeight: 44 }}>
           📥 导入备份
         </button>
       </div>
@@ -143,7 +143,7 @@ export default function DataBackup() {
       {msg && (
         <p style={{
           fontSize: 12, marginTop: 8, marginBottom: 0,
-          color: msg.type === 'ok' ? '#2ECC71' : '#E07B6C',
+          color: msg.type === 'ok' ? 'var(--color-success)' : 'var(--color-expense)',
         }}>
           {msg.text}
         </p>
@@ -152,13 +152,3 @@ export default function DataBackup() {
   );
 }
 
-const primaryBtn: React.CSSProperties = {
-  flex: 1, padding: '11px 0', border: 'none', borderRadius: 10,
-  background: '#4ECDC4', color: '#FFF', fontSize: 13, fontWeight: 600,
-  cursor: 'pointer', fontFamily: 'inherit',
-};
-const secondaryBtn: React.CSSProperties = {
-  flex: 1, padding: '11px 0', border: '1px solid #E0E0E0', borderRadius: 10,
-  background: '#FFF', color: '#1A1A2E', fontSize: 13, fontWeight: 500,
-  cursor: 'pointer', fontFamily: 'inherit',
-};

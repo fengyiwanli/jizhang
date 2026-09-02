@@ -83,18 +83,23 @@ export default function DataExport() {
 
   return (
     <div style={{ marginTop: 16 }}>
-      <h3 style={{ fontSize: 15, fontWeight: 600, color: '#1A1A2E', marginBottom: 8 }}>数据导出</h3>
+      <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8 }}>数据导出</h3>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={exportCSV} disabled={exporting} style={exportBtnStyle}>
+        <button className="btn-primary" onClick={exportCSV} disabled={exporting} style={{ flex: 1, minHeight: 44 }}>
           📄 导出 CSV
         </button>
-        <button onClick={exportJSON} disabled={exporting} style={{ ...exportBtnStyle, background: '#F0F2F5', color: '#2C3E50' }}>
+        <button
+          className="btn-pill"
+          onClick={exportJSON}
+          disabled={exporting}
+          style={{ flex: 1, minHeight: 44, fontSize: 13 }}
+        >
           📋 导出 JSON
         </button>
       </div>
       {done && (
         <p style={{
-          fontSize: 12, color: '#2ECC71', marginTop: 6, marginBottom: 0,
+          fontSize: 12, color: 'var(--color-success)', marginTop: 6, marginBottom: 0,
         }}>
           ✅ {done}
         </p>
@@ -103,8 +108,3 @@ export default function DataExport() {
   );
 }
 
-const exportBtnStyle: React.CSSProperties = {
-  padding: '10px 16px', border: 'none', borderRadius: 10,
-  background: '#4ECDC4', color: '#FFF', fontSize: 13,
-  fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-};

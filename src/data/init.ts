@@ -4,7 +4,7 @@
  * 统一管理数据库初始化、种子数据安装和 Repository 创建
  */
 import { getDatabase, persistDatabase } from './database/context';
-import { installSeed, isSeedInstalled } from './seed';
+import { installSeed, isSeedInstalled, ensureExtraCategories } from './seed';
 import { createTransactionRepository } from './repositories/TransactionRepository';
 import { CategoryRepository } from './repositories/CategoryRepository';
 import { AccountRepository } from './repositories/AccountRepository';
@@ -109,6 +109,9 @@ export async function initializeApp(): Promise<AppContext> {
     }
     localStorage.setItem(SEED_FLAG_KEY, '1');
   }
+
+  // 老库增量补种：每次启动执行（幂等 INSERT OR IGNORE），为新版本新增的系统分类补数
+  await ensureExtraCategories(db);
 
   // 一次性迁移历史时间数据
   if (!localStorage.getItem(TIME_MIGRATED_KEY)) {

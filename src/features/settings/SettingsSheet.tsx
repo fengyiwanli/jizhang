@@ -31,12 +31,12 @@ export function SettingsSheet({ defaultAccountId, defaultAccOnChange, budgetInYu
           position: 'fixed', top: 12, right: 12, zIndex: 50,
           width: 36, height: 36, borderRadius: 18,
           background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)',
-          border: '1px solid #E8E8ED', boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+          border: '1px solid var(--color-border)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer',
         }}
       >
-        <Settings size={18} color="#8E8E93" strokeWidth={1.5} />
+        <Settings size={18} color="var(--color-text-secondary)" strokeWidth={1.5} />
       </button>
 
       {/* 弹窗 */}
@@ -48,20 +48,20 @@ export function SettingsSheet({ defaultAccountId, defaultAccOnChange, budgetInYu
         }} onClick={() => setOpen(false)}>
           <div style={{
             width: '100%', maxWidth: 500, maxHeight: '75vh', overflow: 'auto',
-            background: '#F5F5F7', borderRadius: '20px 20px 0 0', padding: '20px 16px 32px',
+            background: 'var(--color-bg-secondary)', borderRadius: '20px 20px 0 0', padding: '20px 16px 32px',
           }} onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Settings size={18} color="#1A1A2E" />
-                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1A1A2E', margin: 0 }}>设置</h2>
+                <Settings size={18} color="var(--color-text-primary)" />
+                <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>设置</h2>
               </div>
               <button onClick={() => setOpen(false)} style={{
-                width: 30, height: 30, borderRadius: 15, background: '#E8E8ED',
+                width: 30, height: 30, borderRadius: 15, background: 'var(--color-border)',
                 border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer',
               }}>
-                <X size={16} color="#8E8E93" />
+                <X size={16} color="var(--color-text-secondary)" />
               </button>
             </div>
 
@@ -111,7 +111,7 @@ export function SettingsSheet({ defaultAccountId, defaultAccOnChange, budgetInYu
             <SettingCard>
               <div style={{...rowStyle, cursor: 'pointer'}} onClick={() => setShowClear(!showClear)}>
                 <div style={{ flex: 1 }}>
-                  <div style={{...titleStyle, color: '#E07B6C'}}>清除所有数据</div>
+                  <div style={{...titleStyle, color: 'var(--color-expense)'}}>清除所有数据</div>
                   <div style={descStyle}>重置所有账单、账户、分类到初始状态</div>
                 </div>
                 <ArrowRight size={14} color="#D1D1D6" style={{
@@ -119,11 +119,11 @@ export function SettingsSheet({ defaultAccountId, defaultAccOnChange, budgetInYu
                 }} />
               </div>
               {showClear && (
-                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #F0F0F2' }}>
-                  <p style={{ fontSize: 11, color: '#E07B6C', marginBottom: 8 }}>此操作不可撤销，所有数据将被永久删除。</p>
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--color-divider)' }}>
+                  <p style={{ fontSize: 11, color: 'var(--color-expense)', marginBottom: 8 }}>此操作不可撤销，所有数据将被永久删除。</p>
                   <button onClick={() => { onClearData(); setOpen(false); }} style={{
                     width: '100%', padding: '10px 0', border: 'none', borderRadius: 10,
-                    background: '#FFE8E5', color: '#E07B6C', fontSize: 13, fontWeight: 600,
+                    background: '#FFE8E5', color: 'var(--color-expense)', fontSize: 13, fontWeight: 600,
                     cursor: 'pointer', fontFamily: 'inherit',
                   }}>
                     确认清除
@@ -150,7 +150,7 @@ export function SettingsSheet({ defaultAccountId, defaultAccOnChange, budgetInYu
 function SettingCard({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
     <div onClick={onClick} style={{
-      background: '#FFF', borderRadius: 14, padding: '14px 16px',
+      background: 'var(--color-card)', borderRadius: 14, padding: '14px 16px',
       marginBottom: 8, boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
     }}>
       {children}
@@ -161,14 +161,14 @@ function SettingCard({ children, onClick }: { children: React.ReactNode; onClick
 const rowStyle: React.CSSProperties = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
 };
-const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: '#1A1A2E', marginBottom: 2 };
-const descStyle: React.CSSProperties = { fontSize: 11, color: '#8E8E93', lineHeight: 1.5 };
+const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 };
+const descStyle: React.CSSProperties = { fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.5 };
 const amountInputStyle: React.CSSProperties = {
-  width: 70, padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8,
-  fontSize: 14, textAlign: 'center', outline: 'none', fontFamily: 'inherit', color: '#1A1A2E',
+  width: 70, padding: '8px 10px', border: '1px solid var(--color-border)', borderRadius: 8,
+  fontSize: 14, textAlign: 'center', outline: 'none', fontFamily: 'inherit', color: 'var(--color-text-primary)',
 };
 const selectStyle: React.CSSProperties = {
-  padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8,
-  fontSize: 12, outline: 'none', fontFamily: 'inherit', color: '#1A1A2E', background: '#FFF',
+  padding: '8px 10px', border: '1px solid var(--color-border)', borderRadius: 8,
+  fontSize: 12, outline: 'none', fontFamily: 'inherit', color: 'var(--color-text-primary)', background: 'var(--color-card)',
   maxWidth: 130, minWidth: 0,
 };

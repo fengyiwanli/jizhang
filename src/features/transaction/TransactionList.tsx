@@ -6,7 +6,7 @@ import { useTransactionStore } from '@/features/transaction/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
-import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
+import { getCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
 import { useToast } from '@/shared/hooks/useToast';
 import { todayLocal } from '@/core/datetime';
 import { Zap, Trash2, ArrowLeftRight } from 'lucide-react';
@@ -50,7 +50,7 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
     return acc;
   }, {});
 
-  if (loading) return <p style={{ color: '#8E8E93', textAlign: 'center', padding: 24, fontSize: 13 }}>加载中...</p>;
+  if (loading) return <p style={{ color: 'var(--color-text-secondary)', textAlign: 'center', padding: 24, fontSize: 13 }}>加载中...</p>;
 
   const today = todayLocal();
   const todayEntries = Object.entries(grouped).filter(([date]) => date === today);
@@ -80,17 +80,17 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '10px 4px 6px',
                 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A2E', letterSpacing: -0.2 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', letterSpacing: -0.2 }}>
                     {fmtDate(date, today)}
                   </span>
-                <span style={{ fontSize: 11, color: '#8E8E93', maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {dayExpense > 0 && <span style={{ color: '#E07B6C', marginRight: 6 }}>支出 ¥{(dayExpense / 100).toFixed(2)}</span>}
-                  {dayIncome > 0 && <span style={{ color: '#5FBB97' }}>收入 ¥{(dayIncome / 100).toFixed(2)}</span>}
+                <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {dayExpense > 0 && <span style={{ color: 'var(--color-expense)', marginRight: 6 }}>支出 ¥{(dayExpense / 100).toFixed(2)}</span>}
+                  {dayIncome > 0 && <span style={{ color: 'var(--color-income)' }}>收入 ¥{(dayIncome / 100).toFixed(2)}</span>}
                   </span>
                 </div>
 
                 <div style={{
-                  background: '#FFF', borderRadius: 16,
+                  background: 'var(--color-card)', borderRadius: 16,
                   boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden',
                 }}>
                   {txs.map((tx, i) => {
@@ -100,12 +100,13 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
                     const toAcc = accounts.find((a) => a.id === tx.toAccountId);
                     const isExpense = tx.type === 'expense';
                     const isTransfer = tx.type === 'transfer';
-                    const color = isTransfer ? '#6C7AE0' : (cat?.color ?? getCategoryColor(cat?.name ?? ''));
+                    const color = isTransfer ? 'var(--color-transfer)' : (cat?.color ?? getCategoryColor(cat?.name ?? ''));
                     const IconComp = isTransfer ? ArrowLeftRight : (getCategoryIcon(cat?.name ?? '') ?? Zap);
 
                     return (
                       <div
                         key={tx.id}
+                        className="row-press"
                         onTouchStart={() => startLongPress(tx.id)}
                         onTouchEnd={cancelLongPress}
                         onTouchMove={cancelLongPress}
@@ -116,7 +117,7 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           padding: '14px 16px',
-                          borderBottom: i < txs.length - 1 ? '1px solid #F5F5F7' : 'none',
+                          borderBottom: i < txs.length - 1 ? '1px solid var(--color-divider)' : 'none',
                           userSelect: 'none', WebkitUserSelect: 'none',
                         }}
                       >
@@ -124,17 +125,17 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
                           <div style={{
                             width: 40, height: 40, borderRadius: 12,
-                            background: '#F5F5F7',
+                            background: tintColor(color),
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>
                             <IconComp size={18} strokeWidth={1.8} color={color} />
                           </div>
                           <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                            <div style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {cat?.name ?? fmt.typeLabel}
                             </div>
                             <div style={{
-                              fontSize: 11, color: '#8E8E93', marginTop: 2,
+                              fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2,
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               letterSpacing: 0.2,
                             }}>
@@ -161,7 +162,7 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{
                             fontWeight: 600, fontSize: 15,
-                            color: isTransfer ? '#6C7AE0' : isExpense ? '#E07B6C' : '#5FBB97',
+                            color: isTransfer ? 'var(--color-transfer)' : isExpense ? 'var(--color-expense)' : 'var(--color-income)',
                             fontVariantNumeric: 'tabular-nums',
                             whiteSpace: 'nowrap', letterSpacing: -0.2,
                           }}>
@@ -201,41 +202,24 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#FFF', borderRadius: 18,
+              background: 'var(--color-card)', borderRadius: 18,
               padding: '28px 24px 20px', width: '100%', maxWidth: 300,
               textAlign: 'center',
               boxShadow: '0 16px 48px rgba(0,0,0,0.12)',
             }}
           >
             <div style={{ fontSize: 32, marginBottom: 12 }}>🗑️</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#1A1A2E', marginBottom: 6 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 6 }}>
               确认删除
             </div>
-            <div style={{ fontSize: 13, color: '#8E8E93', marginBottom: 22 }}>
+            <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 22 }}>
               删除后无法恢复
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={closeConfirm}
-                disabled={deleting}
-                style={{
-                  flex: 1, padding: '12px 0', border: '1px solid #E8E8ED',
-                  borderRadius: 12, background: '#FFF', color: '#1A1A2E',
-                  fontSize: 14, fontWeight: 500, cursor: 'pointer',
-                }}
-              >
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={closeConfirm} disabled={deleting}>
                 取消
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                style={{
-                  flex: 1, padding: '12px 0', border: 'none',
-                  borderRadius: 12, background: '#E07B6C', color: '#FFF',
-                  fontSize: 14, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer',
-                  opacity: deleting ? 0.6 : 1,
-                }}
-              >
+              <button className="btn-danger" style={{ flex: 1 }} onClick={handleDelete} disabled={deleting}>
                 {deleting ? '删除中...' : '删除'}
               </button>
             </div>

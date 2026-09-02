@@ -26,4 +26,6 @@ export interface ITransactionRepository {
   delete(id: UUID): Promise<void>;
   list(filter: TransactionFilter): Promise<Transaction[]>;
   count(filter: TransactionFilter): Promise<number>;
+  /** 获取账本内使用过的全部标签（去重，按字典序） */
+  getAllTags(ledgerId: UUID): Promise<string[]>;
 }

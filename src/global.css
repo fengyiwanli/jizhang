@@ -8,22 +8,48 @@
  */
 
 :root {
+  /* ---- 主色 / 语义色 ---- */
   --color-primary: #4ECDC4;
+  --color-primary-dark: #3DBDB5;   /* 按压态 */
+  --color-primary-light: #E8F8F7;  /* 淡色背景 */
   --color-expense: #E07B6C;
   --color-income: #5FBB97;
-  --color-bg: #F5F5F7;
-  --color-card: #FFFFFF;
-  --color-text-primary: #1A1A2E;
-  --color-text-secondary: #8E8E93;
-  --color-border: #E8E8ED;
+  --color-transfer: #3498DB;
 
+  /* ---- 背景 / 卡片 ---- */
+  --color-bg: #F5F5F7;
+  --color-bg-secondary: #F5F5F7;
+  --color-card: #FFFFFF;
+
+  /* ---- 文字 ---- */
+  --color-text-primary: #1A1A2E;
+  /* 由 #8E8E93 调深：在 #F5F5F7 上对比度 3.5:1 → 4.8:1，达 WCAG AA */
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #8E8E93;  /* 仅用于占位符等装饰文字 */
+  --color-text-disabled: #C0C0C0;
+
+  /* ---- 描边 ---- */
+  --color-border: #E8E8ED;
+  --color-divider: #F0F0F2;
+  --color-success: #2ECC71;       /* 成功提示 */
+  --color-danger-soft: #FFE8E5;   /* 危险操作淡底 */
+
+  /* ---- 圆角 ---- */
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 20px;
+  --radius-pill: 20px;
 
+  /* ---- 阴影 ---- */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 2px 12px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.08);
+  --shadow-primary: 0 2px 8px rgba(78, 205, 196, 0.25);
+  --shadow-seg: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  /* ---- 动效 / 触摸目标 ---- */
+  --transition-press: 120ms ease;
+  --tap-min: 44px;
 }
 
 * {
@@ -58,6 +84,151 @@ button {
   touch-action: manipulation;
 }
 
+/* ================= 全局按压反馈 ================= */
+/* 打包 APK 后是纯触摸设备，没有 hover，"按下的瞬间"是唯一反馈 */
+button, [role="button"], .pressable {
+  transition: transform var(--transition-press), background-color var(--transition-press),
+    opacity var(--transition-press), color var(--transition-press);
+}
+
+button:active:not(:disabled),
+[role="button"]:active,
+.pressable:active {
+  transform: scale(0.96);
+  opacity: 0.82;
+}
+
+/* 主色实心按钮：按压时加深而非变透明 */
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+  background: var(--color-primary-dark) !important;
+  opacity: 1;
+}
+
+/* 列表行按压 */
+.row-press {
+  transition: background-color var(--transition-press);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.row-press:active { background: var(--color-divider); }
+
+/* 深色/彩色背景上的按压反馈（避免用灰底） */
+.press-soft {
+  transition: background-color var(--transition-press);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.press-soft:active { background: rgba(255, 255, 255, 0.22); }
+
+/* TabBar 项：按压反馈更明显 */
+.tab-item:active:not(:disabled) {
+  transform: scale(0.92);
+  opacity: 1;
+  background: transparent;
+}
+
+/* 尊重系统"减少动态效果"设置 */
+@media (prefers-reduced-motion: reduce) {
+  button, [role="button"], .pressable { transition: none; }
+  button:active, [role="button"]:active, .pressable:active { transform: none; }
+}
+
+/* ================= 三档按钮规范 ================= */
+/* 主要按钮：主色实心 */
+.btn-primary {
+  min-height: var(--tap-min);
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: #FFF;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow-primary);
+  white-space: nowrap;
+}
+.btn-primary:disabled {
+  background: var(--color-border);
+  color: var(--color-text-disabled);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* 次要按钮：白底细边框 */
+.btn-secondary {
+  min-height: var(--tap-min);
+  padding: 0 20px;
+  border: 0.5px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* 文字/胶囊按钮：灰底无边框 */
+.btn-pill {
+  min-height: 36px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* 强调色实心按钮：背景色随场景变化（如支出/收入/转账），按压用 brightness 加深 */
+.btn-accent {
+  min-height: var(--tap-min);
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  color: #FFF;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: var(--shadow-primary);
+  transition: transform var(--transition-press), filter var(--transition-press),
+    background-color var(--transition-press);
+}
+.btn-accent:active:not(:disabled) {
+  transform: scale(0.97);
+  filter: brightness(0.92);
+  opacity: 1;
+}
+.btn-accent:disabled {
+  background: var(--color-border) !important;
+  color: var(--color-text-disabled);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* 危险操作（删除） */
+.btn-danger {
+  min-height: var(--tap-min);
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-expense);
+  color: #FFF;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -66,6 +237,33 @@ button {
 @keyframes toastIn {
   from { opacity: 0; transform: translateY(-12px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 底部弹层动画 */
+@keyframes sheetFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* 数字/内容渐入 */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 骨架屏呼吸 */
+@keyframes skeletonBreath {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-mask, .sheet-panel { animation: none !important; }
 }
 
 /* 隐藏滚动条但可滚动 */

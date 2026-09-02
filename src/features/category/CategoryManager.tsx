@@ -37,14 +37,14 @@ export default function CategoryManager() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, color: '#1A1A2E', margin: 0 }}>分类管理</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>分类管理</h3>
       </div>
 
       {/* 支出分类 */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#E07B6C' }}>💸 支出分类</span>
-          <button onClick={() => handleAdd('expense')} style={addBtnStyle}>+ 添加</button>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-expense)' }}>💸 支出分类</span>
+          <button className="btn-pill" onClick={() => handleAdd('expense')}>+ 添加</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
           {expenseCats.map((c) => (
@@ -56,8 +56,8 @@ export default function CategoryManager() {
       {/* 收入分类 */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#5FBB97' }}>💰 收入分类</span>
-          <button onClick={() => handleAdd('income')} style={addBtnStyle}>+ 添加</button>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-income)' }}>💰 收入分类</span>
+          <button className="btn-pill" onClick={() => handleAdd('income')}>+ 添加</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
           {incomeCats.map((c) => (
@@ -84,12 +84,12 @@ function CatChip({ cat, onClick }: { cat: Category; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-      padding: '8px 2px', border: 'none', borderRadius: 10, background: '#F5F5F7',
+      padding: '8px 2px', border: 'none', borderRadius: 10, background: 'var(--color-bg-secondary)',
       cursor: 'pointer', fontFamily: 'inherit', transition: 'background 150ms',
     }}>
       <div style={{
         width: 32, height: 32, borderRadius: 8,
-        background: '#FFF',
+        background: 'var(--color-card)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <IconComp size={16} strokeWidth={1.8} color={color} />
@@ -152,15 +152,15 @@ function CategoryForm({ category, defaultType, onClose, onSaved }: {
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
       <div style={{
-        width: '100%', maxWidth: 500, background: '#FFF',
+        width: '100%', maxWidth: 500, background: 'var(--color-card)',
         borderRadius: '20px 20px 0 0', padding: '20px 16px',
         maxHeight: '80vh', overflow: 'auto',
       }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 17, color: '#1A1A2E', margin: 0 }}>
+          <h3 style={{ fontSize: 17, color: 'var(--color-text-primary)', margin: 0 }}>
             {category ? '编辑分类' : '添加分类'}
           </h3>
-          <button onClick={onClose} style={{ border: 'none', background: '#F0F2F5', borderRadius: 20, width: 28, height: 28, fontSize: 14, cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ border: 'none', background: 'var(--color-bg-secondary)', borderRadius: 20, width: 28, height: 28, fontSize: 14, cursor: 'pointer' }}>✕</button>
         </div>
 
         {/* 类型 (仅新建时) */}
@@ -169,16 +169,16 @@ function CategoryForm({ category, defaultType, onClose, onSaved }: {
             <label style={labelStyle}>类型</label>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => setType('expense')} style={{
-                padding: '8px 16px', border: type === 'expense' ? '2px solid #FF6B6B' : '1px solid #E0E0E0',
-                borderRadius: 10, background: type === 'expense' ? '#FFF5F5' : '#FFF',
+                padding: '8px 16px', border: type === 'expense' ? '2px solid var(--color-expense)' : '1px solid var(--color-border)',
+                borderRadius: 10, background: type === 'expense' ? '#FFF5F5' : 'var(--color-card)',
                 cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                color: type === 'expense' ? '#E07B6C' : '#7F8C8D',
+                color: type === 'expense' ? 'var(--color-expense)' : 'var(--color-text-secondary)',
               }}>💸 支出</button>
               <button onClick={() => setType('income')} style={{
-                padding: '8px 16px', border: type === 'income' ? '2px solid #2ECC71' : '1px solid #E0E0E0',
-                borderRadius: 10, background: type === 'income' ? '#F0FFF5' : '#FFF',
+                padding: '8px 16px', border: type === 'income' ? '2px solid var(--color-income)' : '1px solid var(--color-border)',
+                borderRadius: 10, background: type === 'income' ? '#F0FFF5' : 'var(--color-card)',
                 cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                color: type === 'income' ? '#5FBB97' : '#7F8C8D',
+                color: type === 'income' ? 'var(--color-income)' : 'var(--color-text-secondary)',
               }}>💰 收入</button>
             </div>
           </div>
@@ -196,15 +196,15 @@ function CategoryForm({ category, defaultType, onClose, onSaved }: {
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {EMOJI_PRESETS.map((em) => (
               <button key={em} onClick={() => setIcon(em)} style={{
-                width: 36, height: 36, border: icon === em ? '2px solid #4ECDC4' : '1px solid #E8E8E8',
-                borderRadius: 8, background: icon === em ? '#E8FAF8' : '#FFF',
+                width: 36, height: 36, border: icon === em ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                borderRadius: 8, background: icon === em ? 'var(--color-primary-light)' : 'var(--color-card)',
                 fontSize: 18, cursor: 'pointer', padding: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {em}
               </button>
             ))}
-            <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="自定义" style={{ width: 50, border: '1px solid #E8E8E8', borderRadius: 8, textAlign: 'center', fontSize: 14, outline: 'none' }} />
+            <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="自定义" style={{ width: 50, border: '1px solid var(--color-border)', borderRadius: 8, textAlign: 'center', fontSize: 14, outline: 'none' }} />
           </div>
         </div>
 
@@ -223,22 +223,28 @@ function CategoryForm({ category, defaultType, onClose, onSaved }: {
 
         {/* 按钮 */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleSave} disabled={!name.trim() || saving} style={{
-            flex: 1, padding: '12px 0', border: 'none', borderRadius: 12,
-            background: name.trim() ? (type === 'expense' ? '#E07B6C' : '#5FBB97') : '#E0E0E0',
-            color: '#FFF', fontSize: 15, fontWeight: 600,
-            cursor: name.trim() && !saving ? 'pointer' : 'not-allowed',
-            fontFamily: 'inherit',
-          }}>
+          <button
+            className="btn-accent"
+            onClick={handleSave}
+            disabled={!name.trim() || saving}
+            style={{
+              flex: 1,
+              background: name.trim()
+                ? (type === 'expense' ? 'var(--color-expense)' : 'var(--color-income)')
+                : undefined,
+            }}
+          >
             {saving ? '保存中...' : category ? '更新' : '创建'}
           </button>
           {category && (
-            <button onClick={handleDelete} disabled={saving} style={{
-              padding: '12px 20px', border: 'none', borderRadius: 12,
-              background: confirmDelete ? '#E07B6C' : '#FFF3F3',
-              color: confirmDelete ? '#FFF' : '#E07B6C',
-              fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-            }}>
+            <button
+              className="btn-danger"
+              onClick={handleDelete}
+              disabled={saving}
+              style={confirmDelete
+                ? undefined
+                : { background: '#FFF3F3', color: 'var(--color-expense)', boxShadow: 'none' }}
+            >
               {confirmDelete ? '确认删除？' : '删除'}
             </button>
           )}
@@ -248,6 +254,5 @@ function CategoryForm({ category, defaultType, onClose, onSaved }: {
   );
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, color: '#8E8E93', marginBottom: 4, paddingLeft: 2 };
-const fieldStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', border: 'none', borderRadius: 12, fontSize: 14, color: '#1A1A2E', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', background: '#F5F5F7' };
-const addBtnStyle: React.CSSProperties = { padding: '4px 12px', border: '1px solid #4ECDC4', borderRadius: 8, background: 'transparent', color: '#4ECDC4', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 };
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4, paddingLeft: 2 };
+const fieldStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', border: 'none', borderRadius: 12, fontSize: 14, color: 'var(--color-text-primary)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', background: 'var(--color-bg-secondary)' };

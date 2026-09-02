@@ -9,7 +9,6 @@ import BillsPage from '@/features/bills/BillsPage';
 import SettingsPage from '@/features/settings/SettingsPage';
 import SettingsView from '@/features/settings/SettingsView';
 import RecurringManager from '@/features/settings/RecurringManager';
-import DailyDetailPage from '@/features/stats/DailyDetailPage';
 import AccountDetailPage from '@/features/account/AccountDetailPage';
 import { initializeApp, getAppContext } from '@/data/init';
 import { todayLocal } from '@/core/datetime';
@@ -21,7 +20,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
     if (this.state.hasError) {
       return (
         <div style={{ padding: 24, fontFamily: 'system-ui' }}>
-          <h1 style={{ color: '#E07B6C' }}>渲染错误</h1>
+          <h1 style={{ color: 'var(--color-expense)' }}>渲染错误</h1>
           <pre style={{ background: '#FFF3F3', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 13, whiteSpace: 'pre-wrap' }}>
             {this.state.error?.message}{'\n\n'}{this.state.error?.stack}
           </pre>
@@ -34,7 +33,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 
 const ACCOUNT_SETTING_KEY = 'default_account_id';
 
-type View = { type: 'tabs'; tab: string } | { type: 'settings' } | { type: 'daily'; date: string } | { type: 'recurring' } | { type: 'account'; accountId: string };
+type View = { type: 'tabs'; tab: string } | { type: 'settings' } | { type: 'recurring' } | { type: 'account'; accountId: string };
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'tabs', tab: 'home' });
@@ -95,11 +94,11 @@ export default function App() {
   }
 
   if (initError) {
-    return <div style={{ padding: 24, fontFamily: 'system-ui' }}><h1 style={{ color: '#E07B6C' }}>初始化失败</h1><pre style={{ background: '#FFF3F3', padding: 16, borderRadius: 8, fontSize: 13 }}>{initError}</pre></div>;
+    return <div style={{ padding: 24, fontFamily: 'system-ui' }}><h1 style={{ color: 'var(--color-expense)' }}>初始化失败</h1><pre style={{ background: '#FFF3F3', padding: 16, borderRadius: 8, fontSize: 13 }}>{initError}</pre></div>;
   }
 
   if (!ready) {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'system-ui', color: '#8E8E93', flexDirection: 'column', gap: 12 }}><div style={{ fontSize: 32 }}>⏳</div><div>正在初始化...</div></div>;
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'system-ui', color: 'var(--color-text-secondary)', flexDirection: 'column', gap: 12 }}><div style={{ fontSize: 32 }}>⏳</div><div>正在初始化...</div></div>;
   }
 
   // --- 子页面视图 ---
@@ -123,14 +122,6 @@ export default function App() {
     return (
       <ErrorBoundary>
         <RecurringManager onBack={() => setView({ type: 'settings' })} />
-      </ErrorBoundary>
-    );
-  }
-
-  if (view.type === 'daily') {
-    return (
-      <ErrorBoundary>
-        <DailyDetailPage date={view.date} onBack={() => setView({ type: 'tabs', tab: 'stats' })} />
       </ErrorBoundary>
     );
   }
@@ -162,7 +153,7 @@ export default function App() {
       content: (
         <div>
           <PageHeader title={pageTitles.stats} onSettings={() => setView({ type: 'settings' })} />
-          <StatsPage onDayClick={(date) => setView({ type: 'daily', date })} />
+          <StatsPage />
         </div>
       ),
     },

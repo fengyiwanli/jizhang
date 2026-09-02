@@ -7,6 +7,8 @@ import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
 import { getAppContext } from '@/data/init';
 import { useToast } from '@/shared/hooks/useToast';
+import { todayLocal, nowTimeLocal } from '@/core/datetime';
+import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 import type { Account } from '@/domain/entities/Account';
 import type { AccountType } from '@/core/types';
 
@@ -46,12 +48,11 @@ export default function AccountManager() {
     setEditingAccount(null);
     setShowForm(true);
   }
-
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, color: '#1A1A2E', margin: 0 }}>账户管理</h3>
-        <button onClick={handleAdd} style={addBtnStyle}>+ 添加</button>
+        <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>账户管理</h3>
+        <button className="btn-pill" onClick={handleAdd}>+ 添加</button>
       </div>
 
       {accounts.map((acc) => {
@@ -59,10 +60,11 @@ export default function AccountManager() {
             return (
         <div
           key={acc.id}
+          className="row-press"
           onClick={() => handleEdit(acc)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 14px', background: '#FFF', borderRadius: 12,
+            padding: '12px 14px', background: 'var(--color-card)', borderRadius: 12,
             marginBottom: 6, boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
             cursor: 'pointer',
           }}
@@ -70,14 +72,14 @@ export default function AccountManager() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <div style={{
               width: 40, height: 40, borderRadius: 12,
-              background: '#F5F5F7',
+              background: 'var(--color-bg-secondary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              <AccIcon size={20} strokeWidth={1.8} color="#4ECDC4" />
+              <AccIcon size={20} strokeWidth={1.8} color="var(--color-primary)" />
             </div>
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#1A1A2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acc.name}</div>
-              <div style={{ fontSize: 11, color: '#8E8E93', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acc.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {accountTypes.find((t) => t.value === acc.type)?.label ?? acc.type}
                 {acc.creditLimit ? ` · 额度 ¥${(acc.creditLimit / 100).toFixed(2)}` : ''}
               </div>
@@ -85,7 +87,7 @@ export default function AccountManager() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{
-              fontSize: 14, fontWeight: 600, color: '#1A1A2E',
+              fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)',
               fontVariantNumeric: 'tabular-nums',
             }}>
               ¥{((balances[acc.id] ?? 0) / 100).toFixed(2)}
@@ -100,7 +102,12 @@ export default function AccountManager() {
         <AccountForm
           account={editingAccount}
           onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); loadAccounts(); }}
+          onSaved={() => {
+            setShowForm(false);
+            loadAccounts();
+            // 余额调整会新增交易，需刷新交易列表，余额 effect 才会重算
+            loadTransactions(10000);
+          }}
         />
       )}
     </div>
@@ -115,29 +122,107 @@ function AccountForm({ account, onClose, onSaved }: {
   const [name, setName] = useState(account?.name ?? '');
   const [type, setType] = useState<AccountType>(account?.type ?? 'cash');
   const [icon, setIcon] = useState(account?.icon ?? '');
-  const [balanceStr, setBalanceStr] = useState(account ? String((account.initialBalance ?? 0) / 100) : '');
+  const [balanceStr, setBalanceStr] = useState('');
   const [creditStr, setCreditStr] = useState(account?.creditLimit ? String(account.creditLimit / 100) : '');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // 编辑已有账户：保存前真实余额（分）+ 该账户是否有交易
+  const [realBalanceFen, setRealBalanceFen] = useState<number | null>(null);
+  const [hasTransactions, setHasTransactions] = useState(false);
+
+  // 打开编辑时，余额框显示「真实余额」（initialBalance + 收支），与账户列表一致
+  // 信用卡且余额为负（欠款）时，展示为用户可读的正数欠款
+  useEffect(() => {
+    if (!account) {
+      setBalanceStr('');
+      setRealBalanceFen(null);
+      setHasTransactions(false);
+      return;
+    }
+    let cancelled = false;
+    const { accountRepo, db } = getAppContext();
+    accountRepo.getBalance(account.id)
+      .then((fen) => {
+        if (cancelled) return;
+        setRealBalanceFen(fen);
+        const owed = account.type === 'credit' && fen < 0 ? -fen : fen;
+        setBalanceStr(String(Number((owed / 100).toFixed(2))));
+      })
+      .catch(() => {});
+    db.query<{ cnt: number }>(
+      'SELECT COUNT(*) cnt FROM transactions WHERE deleted_at IS NULL AND (account_id = ? OR to_account_id = ?)',
+      [account.id, account.id],
+    )
+      .then((rows) => { if (!cancelled) setHasTransactions((rows[0]?.cnt ?? 0) > 0); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [account]);
+
+  /** 把用户输入（元）换算为内部目标余额（分）。信用卡欠款模型下内部为负。 */
+  function toTargetFen(v: number): number {
+    const isCreditDebt = account?.type === 'credit' && (realBalanceFen ?? 0) < 0;
+    const target = Math.round(v * 100);
+    return isCreditDebt ? -target : target;
+  }
 
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const { accountRepo } = getAppContext();
-      const initialBalanceInYuan = parseFloat(balanceStr) || 0;
+      const { accountRepo, transactionRepo, categoryRepo } = getAppContext();
       const creditLimitInYuan = parseFloat(creditStr) || undefined;
+      const v = parseFloat(balanceStr);
+      const hasValue = !isNaN(v);
+
       if (account) {
-        await accountRepo.update(account.id, {
-          name: name.trim(),
-          type,
-          icon: icon || null,
-          initialBalanceInYuan,
-          creditLimitInYuan,
-        });
+        // 保存前的真实余额（与打开弹窗时一致）
+        const currentReal = realBalanceFen ?? (await accountRepo.getBalance(account.id));
+
+        if (!hasTransactions && hasValue) {
+          // 该账户没有任何交易 → 直接调整期初余额（含信用卡符号方向）
+          await accountRepo.update(account.id, {
+            name: name.trim(),
+            type,
+            icon: icon || null,
+            initialBalanceInYuan: toTargetFen(v) / 100,
+            creditLimitInYuan,
+          });
+        } else {
+          // 有交易 → 修改余额 = 生成一笔差额「余额调整」账单，而非改期初值
+          let diff = 0;
+          if (hasValue) {
+            const target = toTargetFen(v);
+            diff = target - currentReal;
+          }
+          if (Math.abs(diff) >= 1) {
+            const t = diff > 0 ? 'income' : 'expense';
+            const roots = await categoryRepo.listRoot(t);
+            const otherCat = roots.find((c) => c.name.includes('其他')) ?? roots[0];
+            const amountYuan = Math.abs(diff) / 100;
+            await transactionRepo.create({
+              ledgerId: DEFAULT_LEDGER_ID,
+              type: t,
+              amountInYuan: amountYuan,
+              accountId: account.id,
+              categoryId: otherCat?.id ?? null,
+              date: todayLocal(),
+              time: nowTimeLocal(),
+              note: '余额调整',
+            });
+            useToast.getState().success(`已自动生成 ¥${amountYuan.toFixed(2)} 的余额调整`);
+          }
+          await accountRepo.update(account.id, {
+            name: name.trim(),
+            type,
+            icon: icon || null,
+            creditLimitInYuan,
+          });
+        }
       } else {
+        // 新建账户：balanceStr → initialBalance（维持现状）
+        const initialBalanceInYuan = hasValue ? v : 0;
         await accountRepo.create({
-          ledgerId: '',
+          ledgerId: DEFAULT_LEDGER_ID,
           name: name.trim(),
           type,
           icon: icon || null,
@@ -175,12 +260,12 @@ function AccountForm({ account, onClose, onSaved }: {
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
       <div style={{
-        width: '100%', maxWidth: 500, background: '#FFF',
+        width: '100%', maxWidth: 500, background: 'var(--color-card)',
         borderRadius: '20px 20px 0 0', padding: '20px 16px',
         maxHeight: '80vh', overflow: 'auto',
       }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 17, color: '#1A1A2E', margin: 0 }}>
+          <h3 style={{ fontSize: 17, color: 'var(--color-text-primary)', margin: 0 }}>
             {account ? '编辑账户' : '添加账户'}
           </h3>
           <button onClick={onClose} style={closeBtnStyle}>✕</button>
@@ -203,10 +288,10 @@ function AccountForm({ account, onClose, onSaved }: {
                 key={t.value}
                 onClick={() => setType(t.value)}
                 style={{
-                  padding: '10px', border: type === t.value ? '2px solid #4ECDC4' : '1px solid #E0E0E0',
-                  borderRadius: 10, background: type === t.value ? '#E8FAF8' : '#FFF',
+                  padding: '10px', border: type === t.value ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  borderRadius: 10, background: type === t.value ? 'var(--color-primary-light)' : 'var(--color-card)',
                   cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                  color: type === t.value ? '#1A1A2E' : '#7F8C8D',
+                  color: type === t.value ? 'var(--color-text-primary)' : '#7F8C8D',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                 <TI size={16} strokeWidth={1.8} /> {t.label}
@@ -235,10 +320,12 @@ function AccountForm({ account, onClose, onSaved }: {
               placeholder={type === 'credit' ? '如 5000' : '如 10000'}
               style={fieldStyle}
             />
-            <div style={{ fontSize: 10, color: '#B0B0B0', marginTop: 2, paddingLeft: 2 }}>
-              {type === 'credit'
-                ? '如已欠款 ¥5,000，请填 5000（根据 4.2 节，信用卡余额将以负数显示）'
-                : '该账户当前的资金余额'}
+            <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 2, paddingLeft: 2, lineHeight: 1.5 }}>
+              {account
+                ? '余额由收支自动计算。如与实际不符，修改保存后会自动生成一笔差额「余额调整」账单'
+                : type === 'credit'
+                  ? '填写当前欠款金额即可（保存后余额将按欠款方向显示）'
+                  : '该账户当前的资金余额'}
             </div>
           </div>
 
@@ -259,21 +346,23 @@ function AccountForm({ account, onClose, onSaved }: {
 
         {/* 按钮 */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleSave} disabled={!name.trim() || saving} style={{
-            flex: 1, padding: '12px 0', border: 'none', borderRadius: 12,
-            background: name.trim() ? '#4ECDC4' : '#E0E0E0', color: '#FFF',
-            fontSize: 15, fontWeight: 600, cursor: name.trim() ? 'pointer' : 'not-allowed',
-            fontFamily: 'inherit',
-          }}>
+          <button
+            className="btn-primary"
+            onClick={handleSave}
+            disabled={!name.trim() || saving}
+            style={{ flex: 1 }}
+          >
             {saving ? '保存中...' : account ? '更新' : '创建'}
           </button>
           {account && (
-            <button onClick={handleDelete} disabled={saving} style={{
-              padding: '12px 20px', border: 'none', borderRadius: 12,
-              background: confirmDelete ? '#FF6B6B' : '#FFF3F3',
-              color: confirmDelete ? '#FFF' : '#FF6B6B',
-              fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-            }}>
+            <button
+              className="btn-danger"
+              onClick={handleDelete}
+              disabled={saving}
+              style={confirmDelete
+                ? undefined
+                : { background: 'var(--color-danger-soft)', color: 'var(--color-expense)', boxShadow: 'none' }}
+            >
               {confirmDelete ? '确认删除？' : '删除'}
             </button>
           )}
@@ -284,22 +373,16 @@ function AccountForm({ account, onClose, onSaved }: {
 }
 
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 12, color: '#8E8E93', marginBottom: 4, paddingLeft: 2,
+  display: 'block', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4, paddingLeft: 2,
 };
 
 const fieldStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px', border: 'none', borderRadius: 12,
-  fontSize: 14, color: '#1A1A2E', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-  background: '#F5F5F7',
-};
-
-const addBtnStyle: React.CSSProperties = {
-  padding: '6px 14px', border: '1px solid #4ECDC4', borderRadius: 8,
-  background: 'transparent', color: '#4ECDC4', fontSize: 13,
-  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
+  fontSize: 14, color: 'var(--color-text-primary)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+  background: 'var(--color-bg-secondary)',
 };
 
 const closeBtnStyle: React.CSSProperties = {
-  border: 'none', background: '#F0F2F5', borderRadius: 20, width: 28, height: 28,
+  border: 'none', background: 'var(--color-bg-secondary)', borderRadius: 20, width: 28, height: 28,
   fontSize: 14, cursor: 'pointer',
 };

@@ -52,22 +52,23 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
 
   if (loading) return <p style={{ color: '#8E8E93', textAlign: 'center', padding: 24, fontSize: 13 }}>加载中...</p>;
 
-  if (transactions.length === 0) {
+  const today = todayLocal();
+  const todayEntries = Object.entries(grouped).filter(([date]) => date === today);
+
+  if (todayEntries.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '48px 0', color: '#C7C7CC' }}>
         <div style={{ fontSize: 48, marginBottom: 8 }}>—</div>
-        <div style={{ fontSize: 14, fontWeight: 500 }}>暂无记录</div>
-        <div style={{ fontSize: 12, marginTop: 4 }}>开始记录你的第一笔账单吧</div>
+        <div style={{ fontSize: 14, fontWeight: 500 }}>今天还没有记录</div>
+        <div style={{ fontSize: 12, marginTop: 4 }}>记一笔今天的账单吧</div>
       </div>
     );
   }
 
-  const today = todayLocal();
-
   return (
     <>
       <div>
-        {Object.entries(grouped)
+        {todayEntries
           .sort(([a], [b]) => b.localeCompare(a))
           .map(([date, txs]) => {
             const dayExpense = txs.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);

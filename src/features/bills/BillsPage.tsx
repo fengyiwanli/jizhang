@@ -1,7 +1,7 @@
 /**
  * 账单页面 — 搜索 + 多维筛选 + 按日期分组列表
  */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Zap } from 'lucide-react';
 import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
@@ -25,8 +25,8 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const offsetRef = useRef(0);
 
   // 筛选
   const [keyword, setKeyword] = useState('');
@@ -50,29 +50,38 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
     localStorage.setItem('bk_search_history', JSON.stringify(next));
   }
 
-  const load = useCallback(async (reset = false) => {
+  const buildFilter = useCallback(() => ({
+    ledgerId: DEFAULT_LEDGER_ID,
+    type: typeFilter === 'all' ? undefined : typeFilter,
+    categoryId: catFilter === 'all' ? undefined : catFilter,
+    accountId: accFilter === 'all' ? undefined : accFilter,
+    keyword: keyword || undefined,
+    tags: tagFilter ? [tagFilter] : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+  }), [typeFilter, catFilter, accFilter, keyword, tagFilter, dateFrom, dateTo]);
+
+  const reload = useCallback(async () => {
     setLoading(true);
     const { transactionRepo } = getAppContext();
-    const nextOffset = reset ? 0 : offset;
-    const txs = await transactionRepo.list({
-      ledgerId: DEFAULT_LEDGER_ID,
-      type: typeFilter === 'all' ? undefined : typeFilter,
-      categoryId: catFilter === 'all' ? undefined : catFilter,
-      accountId: accFilter === 'all' ? undefined : accFilter,
-      keyword: keyword || undefined,
-      tags: tagFilter ? [tagFilter] : undefined,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
-      limit: PAGE_SIZE,
-      offset: nextOffset,
-    });
-    setTransactions((prev) => (reset ? txs : [...prev, ...txs]));
+    const txs = await transactionRepo.list({ ...buildFilter(), limit: PAGE_SIZE, offset: 0 });
+    setTransactions(txs);
     setHasMore(txs.length === PAGE_SIZE);
-    setOffset(nextOffset + txs.length);
+    offsetRef.current = txs.length;
     setLoading(false);
-  }, [keyword, typeFilter, catFilter, accFilter, tagFilter, dateFrom, dateTo, offset]);
+  }, [buildFilter]);
 
-  useEffect(() => { load(true); }, [load]);
+  const loadMore = useCallback(async () => {
+    setLoading(true);
+    const { transactionRepo } = getAppContext();
+    const txs = await transactionRepo.list({ ...buildFilter(), limit: PAGE_SIZE, offset: offsetRef.current });
+    setTransactions((prev) => [...prev, ...txs]);
+    setHasMore(txs.length === PAGE_SIZE);
+    offsetRef.current += txs.length;
+    setLoading(false);
+  }, [buildFilter]);
+
+  useEffect(() => { reload(); }, [reload]);
 
   // 按日期分组
   const grouped = transactions.reduce<Record<string, Transaction[]>>((acc, tx) => {
@@ -175,7 +184,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
       )}
 
       {/* 列表 */}
-      {loading && <p style={{ textAlign: 'center', color: '#8E8E93', padding: 20 }}>加载中...</p>}
+      {loading && transactions.length === 0 && <p style={{ textAlign: 'center', color: '#8E8E93', padding: 20 }}>加载中...</p>}
 
       {!loading && transactions.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: '#8E8E93' }}>
@@ -235,17 +244,19 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
       })}
 
       {/* 加载更多 */}
-      {hasMore && !loading && (
+      {hasMore && (
         <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
           <button
-            onClick={() => load(false)}
+            onClick={loadMore}
+            disabled={loading}
             style={{
               padding: '10px 32px', border: '1px solid #E0E0E0', borderRadius: 20,
-              background: '#FFF', color: '#1A1A2E', fontSize: 13, cursor: 'pointer',
-              fontFamily: 'inherit',
+              background: '#FFF', color: '#1A1A2E', fontSize: 13,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit', opacity: loading ? 0.5 : 1,
             }}
           >
-            加载更多
+            {loading ? '加载中...' : '加载更多'}
           </button>
         </div>
       )}

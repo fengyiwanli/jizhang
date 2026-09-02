@@ -157,6 +157,26 @@ export class StatsRepository {
     );
   }
 
+  /** 日期范围逐日收支（仅含实际有交易的日期，前端自行补齐整段） */
+  async getDailyTrendRange(
+    dateFrom: string,
+    dateTo: string,
+    ledgerId: UUID = DEFAULT_LEDGER_ID,
+  ): Promise<DailyTrend[]> {
+    return this.db.query<DailyTrend>(
+      `SELECT
+        date,
+        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as expense,
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income,
+        COUNT(*) as count
+      FROM transactions
+      WHERE ledger_id = ? AND date BETWEEN ? AND ? AND deleted_at IS NULL
+      GROUP BY date
+      ORDER BY date ASC`,
+      [ledgerId, dateFrom, dateTo],
+    );
+  }
+
   /** 年度月度趋势 */
   async getYearlyTrend(
     year: string,

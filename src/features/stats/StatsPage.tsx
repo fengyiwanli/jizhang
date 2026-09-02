@@ -8,7 +8,7 @@
  */
 import { useEffect, useState, useRef } from 'react';
 import * as echarts from 'echarts';
-import { Zap, PieChart, ArrowLeftRight, Calendar } from 'lucide-react';
+import { Zap, BarChart3, ArrowLeftRight, Calendar } from 'lucide-react';
 import { getAppContext } from '@/data/init';
 import { getCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
 import type { StatsRepository, MonthlySummary, CategoryStat, DailyTrend } from '@/data/repositories/StatsRepository';
@@ -19,6 +19,13 @@ type ViewMode = 'day' | 'week' | 'month' | 'year' | 'custom';
 
 /** getDailyTransactions 返回的完整行数组 */
 type DayTxList = Awaited<ReturnType<StatsRepository['getDailyTransactions']>>;
+
+/* ECharts 是 canvas 渲染，不支持 CSS 变量；这里统一取 global.css token 的落地 hex（唯一来源） */
+const CHART_EXPENSE = '#E07B6C'; // = var(--color-expense)
+const CHART_INCOME = '#5FBB97';  // = var(--color-income)
+const CHART_TEXT = '#1A1A2E';    // 文字/图例
+const CHART_MUTED = '#8E8E93';   // 次要
+const CHART_GRID = '#F5F5F5';    // 分割线
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -32,13 +39,16 @@ export default function StatsPage() {
 
   // 月数据
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
+  const [prevMonthSummary, setPrevMonthSummary] = useState<MonthlySummary | null>(null);
   const [expenseStats, setExpenseStats] = useState<CategoryStat[]>([]);
   const [incomeStats, setIncomeStats] = useState<CategoryStat[]>([]);
-  const [dailyTrend, setDailyTrend] = useState<DailyTrend[]>([]);
+  const [dailyTrend, setDailyTrend] = useState<DailyTrend[]>([]);      // 原始（有记录日期）
+  const [monthTrend, setMonthTrend] = useState<DailyTrend[]>([]);      // 补齐整月 1..N 号
   const [budget, setBudget] = useState<number | null>(null);
 
   // 年数据
   const [yearSummary, setYearSummary] = useState<MonthlySummary | null>(null);
+  const [prevYearSummary, setPrevYearSummary] = useState<MonthlySummary | null>(null);
   const [yearlyTrend, setYearlyTrend] = useState<Array<{ month: string; totalExpense: number; totalIncome: number }>>([]);
   const [yearlyExpense, setYearlyExpense] = useState<CategoryStat[]>([]);
 
@@ -47,6 +57,7 @@ export default function StatsPage() {
     thisWeekExpense: number; thisWeekIncome: number;
     lastWeekExpense: number; lastWeekIncome: number; avgDaily: number;
   } | null>(null);
+  const [weekDaily, setWeekDaily] = useState<DailyTrend[]>([]);        // 本周 7 天（已补齐）
 
   // 自定义时间
   const [customFrom, setCustomFrom] = useState('');
@@ -63,6 +74,7 @@ export default function StatsPage() {
 
   const lineRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const weekBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (view === 'month') loadMonthData();
@@ -76,17 +88,21 @@ export default function StatsPage() {
   async function loadMonthData() {
     setLoading(true);
     const { statsRepo, budgetRepo } = getAppContext();
-    const [s, exp, inc, trend, budgetAmount] = await Promise.all([
+    const prevYM = shiftYM(yearMonth, -1);
+    const [s, prev, exp, inc, trend, budgetAmount] = await Promise.all([
       statsRepo.getMonthlySummary(yearMonth),
+      statsRepo.getMonthlySummary(prevYM),
       statsRepo.getCategoryStats(yearMonth, 'expense'),
       statsRepo.getCategoryStats(yearMonth, 'income'),
       statsRepo.getDailyTrend(yearMonth),
       budgetRepo.getTotalBudget(yearMonth),
     ]);
     setSummary(s);
+    setPrevMonthSummary(prev);
     setExpenseStats(exp);
     setIncomeStats(inc);
     setDailyTrend(trend);
+    setMonthTrend(padMonthTrend(trend, yearMonth));
     setBudget(budgetAmount !== null ? budgetAmount / 100 : null);
     setLoading(false);
   }
@@ -94,12 +110,15 @@ export default function StatsPage() {
   async function loadYearData() {
     setLoading(true);
     const { statsRepo } = getAppContext();
-    const [s, trend, exp] = await Promise.all([
+    const prevYear = String(Number(year) - 1);
+    const [s, prev, trend, exp] = await Promise.all([
       statsRepo.getYearlySummary(year),
+      statsRepo.getYearlySummary(prevYear),
       statsRepo.getYearlyTrend(year),
       statsRepo.getYearlyCategoryStats(year, 'expense'),
     ]);
     setYearSummary(s);
+    setPrevYearSummary(prev);
     setYearlyTrend(trend);
     setYearlyExpense(exp);
     setLoading(false);
@@ -114,10 +133,12 @@ export default function StatsPage() {
     const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
     const lastMonday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7);
     const lastSunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 1);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
 
-    const [thisWeek, lastWeek] = await Promise.all([
+    const [thisWeek, lastWeek, weekRange] = await Promise.all([
       statsRepo.getWeekSummary(fmtDate(monday), fmtDate(today)),
       statsRepo.getWeekSummary(fmtDate(lastMonday), fmtDate(lastSunday)),
+      statsRepo.getDailyTrendRange(fmtDate(monday), fmtDate(sunday)),
     ]);
 
     const thisWeekExpense = thisWeek.expense;
@@ -128,6 +149,7 @@ export default function StatsPage() {
     const avgDaily = thisWeekExpense / daysPassed;
 
     setWeekData({ thisWeekExpense, thisWeekIncome, lastWeekExpense, lastWeekIncome, avgDaily });
+    setWeekDaily(padWeekDays(weekRange, monday));
     setLoading(false);
   }
 
@@ -160,24 +182,24 @@ export default function StatsPage() {
     setLoading(false);
   }
 
-  // 月趋势折线图
+  // 月趋势柱状图（补齐整月日期，点击切日视图）
   useEffect(() => {
-    if (!lineRef.current || dailyTrend.length === 0) return;
+    if (!lineRef.current || monthTrend.length === 0) return;
     const chart = echarts.init(lineRef.current);
-    const days = dailyTrend.map((d) => d.date.slice(8));
+    const days = monthTrend.map((d) => d.date.slice(8));
 
     chart.setOption({
-      tooltip: { trigger: 'axis' },
+      tooltip: axisTooltip(),
       grid: { top: 8, left: 6, right: 6, bottom: 4, containLabel: true },
-      xAxis: { type: 'category', data: days, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
+      xAxis: { type: 'category', data: days, axisLabel: { fontSize: 10, color: CHART_MUTED }, axisTick: { show: false } },
       yAxis: {
         type: 'value',
-        axisLabel: { fontSize: 10, formatter: (v: number) => formatAxisLabel(v) },
-        splitLine: { lineStyle: { color: '#F5F5F5' } },
+        axisLabel: { fontSize: 10, color: CHART_MUTED, formatter: (v: number) => formatAxisLabel(v) },
+        splitLine: { lineStyle: { color: CHART_GRID } },
       },
       series: [
-        { name: '支出', type: 'bar', data: dailyTrend.map((d) => d.expense), itemStyle: { color: 'var(--color-expense)', borderRadius: [4, 4, 0, 0] }, barMaxWidth: 16 },
-        { name: '收入', type: 'bar', data: dailyTrend.map((d) => d.income), itemStyle: { color: 'var(--color-income)', borderRadius: [4, 4, 0, 0] }, barMaxWidth: 16 },
+        { name: '支出', type: 'bar', data: monthTrend.map((d) => d.expense), itemStyle: { color: CHART_EXPENSE, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 16 },
+        { name: '收入', type: 'bar', data: monthTrend.map((d) => d.income), itemStyle: { color: CHART_INCOME, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 16 },
       ],
     });
 
@@ -185,14 +207,14 @@ export default function StatsPage() {
     chart.on('click', (params: { name: string }) => {
       const idx = days.indexOf(params.name);
       if (idx >= 0) {
-        const target = dailyTrend[idx]!.date;
+        const target = monthTrend[idx]!.date;
         setDay(target);
         setView('day');
       }
     });
 
     return () => chart.dispose();
-  }, [dailyTrend]);
+  }, [monthTrend]);
 
   // 年柱状图
   useEffect(() => {
@@ -201,18 +223,18 @@ export default function StatsPage() {
     const months = yearlyTrend.map((d) => d.month?.slice(5) ?? '');
 
     chart.setOption({
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['支出', '收入'], top: 0, textStyle: { fontSize: 11 } },
+      tooltip: axisTooltip(),
+      legend: { data: ['支出', '收入'], top: 0, textStyle: { fontSize: 11, color: CHART_TEXT } },
       grid: { top: 28, left: 6, right: 6, bottom: 4, containLabel: true },
-      xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10 } },
+      xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10, color: CHART_MUTED } },
       yAxis: {
         type: 'value',
-        axisLabel: { fontSize: 10, formatter: (v: number) => formatAxisLabel(v) },
-        splitLine: { lineStyle: { color: '#F5F5F5' } },
+        axisLabel: { fontSize: 10, color: CHART_MUTED, formatter: (v: number) => formatAxisLabel(v) },
+        splitLine: { lineStyle: { color: CHART_GRID } },
       },
       series: [
-        { name: '支出', type: 'bar', data: yearlyTrend.map((d) => d.totalExpense), itemStyle: { color: 'var(--color-expense)', borderRadius: [4, 4, 0, 0] }, barMaxWidth: 20 },
-        { name: '收入', type: 'bar', data: yearlyTrend.map((d) => d.totalIncome), itemStyle: { color: 'var(--color-income)', borderRadius: [4, 4, 0, 0] }, barMaxWidth: 20 },
+        { name: '支出', type: 'bar', data: yearlyTrend.map((d) => d.totalExpense), itemStyle: { color: CHART_EXPENSE, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 20 },
+        { name: '收入', type: 'bar', data: yearlyTrend.map((d) => d.totalIncome), itemStyle: { color: CHART_INCOME, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 20 },
       ],
     });
 
@@ -226,6 +248,30 @@ export default function StatsPage() {
 
     return () => chart.dispose();
   }, [yearlyTrend]);
+
+  // 周视图「本周每日收支」柱状图
+  useEffect(() => {
+    if (!weekBarRef.current || weekDaily.length === 0) return;
+    const chart = echarts.init(weekBarRef.current);
+    const labels = weekDaily.map((_, i) => WEEK_LABELS[i] ?? '');
+
+    chart.setOption({
+      tooltip: axisTooltip(),
+      grid: { top: 8, left: 6, right: 6, bottom: 4, containLabel: true },
+      xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10, color: CHART_MUTED }, axisTick: { show: false } },
+      yAxis: {
+        type: 'value',
+        axisLabel: { fontSize: 10, color: CHART_MUTED, formatter: (v: number) => formatAxisLabel(v) },
+        splitLine: { lineStyle: { color: CHART_GRID } },
+      },
+      series: [
+        { name: '支出', type: 'bar', data: weekDaily.map((d) => d.expense), itemStyle: { color: CHART_EXPENSE, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 14 },
+        { name: '收入', type: 'bar', data: weekDaily.map((d) => d.income), itemStyle: { color: CHART_INCOME, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 14 },
+      ],
+    });
+
+    return () => chart.dispose();
+  }, [weekDaily]);
 
   const changePeriod = (delta: number) => {
     if (view === 'month') {
@@ -263,9 +309,9 @@ export default function StatsPage() {
 
   return (
     <div style={{ padding: '16px 16px 80px', maxWidth: 500, margin: '0 auto' }}>
-      {/* 视图切换 + 时间选择 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 16 }}>
-        <div style={{ display: 'flex', background: 'var(--color-bg-secondary)', borderRadius: 10, padding: 3, flexShrink: 0 }}>
+      {/* 视图切换 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: view === 'day' ? 8 : 16 }}>
+        <div style={{ display: 'flex', background: 'var(--color-bg-secondary)', borderRadius: 10, padding: 3, flexShrink: 0, maxWidth: '100%' }}>
           {([
             { v: 'day', label: '日' },
             { v: 'week', label: '周' },
@@ -286,43 +332,12 @@ export default function StatsPage() {
           ))}
         </div>
 
-        {/* 右侧：日 专属日期导航 / 月、年 ‹ › / 周、自定义 占位 */}
+        {/* 顶行右侧：月/年 ‹ › 或 周 占位（日视图的日期导航单独放第二行） */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          {view === 'day' && (
-            <>
-              <button onClick={() => shiftDay(-1)} style={navBtn}>{'‹'}</button>
-              <span style={{
-                fontWeight: 700, fontSize: 14, color: 'var(--color-text-primary)',
-                minWidth: 92, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {dayLabel}
-              </span>
-              <button onClick={() => shiftDay(1)} disabled={isToday} style={{ ...navBtn, opacity: isToday ? 0.3 : 1 }}>{'›'}</button>
-              {/* 选日期胶囊 */}
-              <div style={{ position: 'relative' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 3,
-                  padding: '6px 8px', borderRadius: 14,
-                  background: 'var(--color-primary-light)', color: 'var(--color-primary)',
-                  fontSize: 11, fontWeight: 500,
-                }}>
-                  <Calendar size={12} />
-                  选日期
-                </div>
-                <input
-                  type="date"
-                  value={day}
-                  max={todayLocal()}
-                  onChange={(e) => e.target.value && setDay(e.target.value)}
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                />
-              </div>
-            </>
-          )}
           {(view === 'month' || view === 'year') && (
             <>
               <button onClick={() => changePeriod(-1)} style={navBtn}>{'‹'}</button>
-              <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)', minWidth: 80, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)', minWidth: 72, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {view === 'month' ? yearMonth.replace('-', '年') + '月' : year + '年'}
               </span>
               <button onClick={() => changePeriod(1)} style={navBtn}>{'›'}</button>
@@ -331,6 +346,38 @@ export default function StatsPage() {
           {view === 'week' && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)' }}>本周</span>}
         </div>
       </div>
+
+      {/* 日视图专属日期导航：独立一行，左右翻天 + 中间日期 + 右侧选日期胶囊（不越界） */}
+      {view === 'day' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <button onClick={() => shiftDay(-1)} style={navBtn}>{'‹'}</button>
+          <span style={{
+            flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, color: 'var(--color-text-primary)',
+            textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {dayLabel}
+          </span>
+          <button onClick={() => shiftDay(1)} disabled={isToday} style={{ ...navBtn, opacity: isToday ? 0.3 : 1 }}>{'›'}</button>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 3,
+              padding: '7px 10px', borderRadius: 14,
+              background: 'var(--color-primary-light)', color: 'var(--color-primary)',
+              fontSize: 12, fontWeight: 500,
+            }}>
+              <Calendar size={13} />
+              选日期
+            </div>
+            <input
+              type="date"
+              value={day}
+              max={todayLocal()}
+              onChange={(e) => e.target.value && setDay(e.target.value)}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 自定义时间范围选择 */}
       {view === 'custom' && (
@@ -378,17 +425,23 @@ export default function StatsPage() {
       {/* 周视图 */}
       {view === 'week' && weekData && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
             <Card label="本周支出" value={MoneyUtils.format(weekData.thisWeekExpense)} color="var(--color-expense)" />
             <Card label="本周收入" value={MoneyUtils.format(weekData.thisWeekIncome)} color="var(--color-income)" />
             <Card label="日均支出" value={MoneyUtils.format(Math.round(weekData.avgDaily))} color="var(--color-primary)" />
           </div>
-          <WeekCompare
-            thisWeekExpense={weekData.thisWeekExpense}
-            lastWeekExpense={weekData.lastWeekExpense}
-            thisWeekIncome={weekData.thisWeekIncome}
-            lastWeekIncome={weekData.lastWeekIncome}
+          <CompareCard
+            title="环比上周"
+            expenseNow={weekData.thisWeekExpense}
+            expensePrev={weekData.lastWeekExpense}
+            incomeNow={weekData.thisWeekIncome}
+            incomePrev={weekData.lastWeekIncome}
           />
+          {weekDaily.length > 0 && (
+            <ChartCard title="本周每日收支">
+              <div ref={weekBarRef} style={{ height: 170 }} />
+            </ChartCard>
+          )}
         </>
       )}
 
@@ -419,6 +472,18 @@ export default function StatsPage() {
             <Card label="结余" value={MoneyUtils.format(summary.totalIncome - summary.totalExpense)} color={summary.totalIncome >= summary.totalExpense ? 'var(--color-primary)' : 'var(--color-expense)'} />
           </div>
 
+          {prevMonthSummary && (
+            <div style={{ marginBottom: 12 }}>
+              <CompareCard
+                title="环比上月"
+                expenseNow={summary.totalExpense}
+                expensePrev={prevMonthSummary.totalExpense}
+                incomeNow={summary.totalIncome}
+                incomePrev={prevMonthSummary.totalIncome}
+              />
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
             {expenseStats.length > 0 && (
               <CategoryBars title="支出构成" stats={expenseStats} accent="expense" />
@@ -439,11 +504,24 @@ export default function StatsPage() {
 
       {/* 年视图 */}
       {view === 'year' && yearSummary && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
-          <Card label="年支出" value={MoneyUtils.format(yearSummary.totalExpense)} color="var(--color-expense)" />
-          <Card label="年收入" value={MoneyUtils.format(yearSummary.totalIncome)} color="var(--color-income)" />
-          <Card label="年结余" value={MoneyUtils.format(yearSummary.totalIncome - yearSummary.totalExpense)} color={yearSummary.totalIncome >= yearSummary.totalExpense ? 'var(--color-primary)' : 'var(--color-expense)'} />
-        </div>
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+            <Card label="年支出" value={MoneyUtils.format(yearSummary.totalExpense)} color="var(--color-expense)" />
+            <Card label="年收入" value={MoneyUtils.format(yearSummary.totalIncome)} color="var(--color-income)" />
+            <Card label="年结余" value={MoneyUtils.format(yearSummary.totalIncome - yearSummary.totalExpense)} color={yearSummary.totalIncome >= yearSummary.totalExpense ? 'var(--color-primary)' : 'var(--color-expense)'} />
+          </div>
+          {prevYearSummary && (
+            <div style={{ marginBottom: 12 }}>
+              <CompareCard
+                title="环比上年"
+                expenseNow={yearSummary.totalExpense}
+                expensePrev={prevYearSummary.totalExpense}
+                incomeNow={yearSummary.totalIncome}
+                incomePrev={prevYearSummary.totalIncome}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {view === 'year' && (
@@ -605,30 +683,37 @@ function Card({ label, value, color }: { label: string; value: string; color: st
   );
 }
 
-function WeekCompare({ thisWeekExpense, lastWeekExpense, thisWeekIncome, lastWeekIncome }: {
-  thisWeekExpense: number; lastWeekExpense: number;
-  thisWeekIncome: number; lastWeekIncome: number;
+/** 通用环比卡片：支出/收入两列涨跌（红增绿减灰平） */
+function CompareCard({ title, expenseNow, expensePrev, incomeNow, incomePrev }: {
+  title: string;
+  expenseNow: number; expensePrev: number;
+  incomeNow: number; incomePrev: number;
 }) {
-  const expenseDiff = thisWeekExpense - lastWeekExpense;
-  const expensePct = lastWeekExpense > 0 ? Math.round((expenseDiff / lastWeekExpense) * 100) : 0;
-  const incomeDiff = thisWeekIncome - lastWeekIncome;
-  const incomePct = lastWeekIncome > 0 ? Math.round((incomeDiff / lastWeekIncome) * 100) : 0;
+  const expenseDiff = expenseNow - expensePrev;
+  const incomeDiff = incomeNow - incomePrev;
+  const pct = (prev: number, diff: number) => (prev > 0 ? Math.round((diff / prev) * 100) : 0);
   const diffColor = (v: number) => (v > 0 ? 'var(--color-expense)' : v < 0 ? 'var(--color-income)' : 'var(--color-text-secondary)');
+
+  function renderValue(diff: number, prev: number) {
+    if (diff === 0) return '持平';
+    const sign = diff > 0 ? '+' : '-';
+    return `${sign}${MoneyUtils.format(Math.abs(diff)).replace('¥', '')} (${sign === '-' ? '-' : '+'}${pct(prev, diff)}%)`;
+  }
 
   return (
     <div style={{ background: 'var(--color-card)', borderRadius: 16, padding: '14px 16px', marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 10 }}>环比上周</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 10 }}>{title}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>支出</div>
           <div style={{ fontSize: 13, marginTop: 2, color: diffColor(expenseDiff), fontWeight: 600 }}>
-            {expenseDiff > 0 ? '+' : ''}{expenseDiff === 0 ? '持平' : `${MoneyUtils.format(expenseDiff).replace('¥', '')} (${expenseDiff > 0 ? '+' : ''}${expensePct}%)`}
+            {renderValue(expenseDiff, expensePrev)}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>收入</div>
           <div style={{ fontSize: 13, marginTop: 2, color: diffColor(incomeDiff), fontWeight: 600 }}>
-            {incomeDiff > 0 ? '+' : ''}{incomeDiff === 0 ? '持平' : `${MoneyUtils.format(incomeDiff).replace('¥', '')} (${incomeDiff > 0 ? '+' : ''}${incomePct}%)`}
+            {renderValue(incomeDiff, incomePrev)}
           </div>
         </div>
       </div>
@@ -698,7 +783,7 @@ function RankList({ title, stats, full }: { title: string; stats: CategoryStat[]
 function EmptyHint() {
   return (
     <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-secondary)' }}>
-      <PieChart size={40} strokeWidth={1.2} color="#C7C7CC" />
+      <BarChart3 size={40} strokeWidth={1.2} color="#C7C7CC" />
       <div style={{ marginTop: 8, fontSize: 14 }}>暂无数据</div>
       <div style={{ fontSize: 12, marginTop: 4, color: 'var(--color-text-tertiary)' }}>
         记几笔账，这里就会出现统计图表
@@ -739,6 +824,60 @@ function SkeletonBlock({ height, flex, mb }: { height: number; flex?: number; mb
 function getCurrentYM() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** YYYY-MM 位移 delta 个月 */
+function shiftYM(ym: string, delta: number): string {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y!, m! - 1);
+  d.setMonth(d.getMonth() + delta);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** 当月天数 */
+function daysInMonth(ym: string): number {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y!, m!, 0).getDate();
+}
+
+/** 把当月实际有记录的日期补成整月 1..N（缺失日期 0 值），X 轴不再断裂 */
+function padMonthTrend(trend: DailyTrend[], ym: string): DailyTrend[] {
+  const n = daysInMonth(ym);
+  const map = new Map(trend.map((d) => [Number(d.date.slice(8)), d]));
+  return Array.from({ length: n }, (_, i) => {
+    const day = i + 1;
+    const hit = map.get(day);
+    if (hit) return hit;
+    return { date: `${ym}-${String(day).padStart(2, '0')}`, expense: 0, income: 0, count: 0 };
+  });
+}
+
+/** 把一周范围的实际记录补成完整 7 天（周一..周日） */
+function padWeekDays(range: DailyTrend[], monday: Date): DailyTrend[] {
+  const map = new Map(range.map((d) => [d.date, d]));
+  return Array.from({ length: 7 }, (_, i) => {
+    const dt = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const key = fmtDate(dt);
+    return map.get(key) ?? { date: key, expense: 0, income: 0, count: 0 };
+  });
+}
+
+const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+
+/** echarts axis tooltip：金额以分存储，仅展示层 ÷100 显示为元 */
+function axisTooltip() {
+  return {
+    trigger: 'axis',
+    formatter: (params: unknown) => {
+      const list = Array.isArray(params) ? params as Array<{ seriesName?: string; color?: string; value?: unknown; name?: string }> : [];
+      if (list.length === 0) return '';
+      const lines = list.map((p) => {
+        const val = typeof p.value === 'number' ? p.value : 0;
+        return `<span style="color:${p.color ?? CHART_TEXT}">●</span> ${p.seriesName ?? ''}：¥${(val / 100).toFixed(2)}`;
+      }).join('<br/>');
+      return `${list[0]!.name ?? ''}<br/>${lines}`;
+    },
+  };
 }
 
 /** 格式化图表 y 轴金额 (单位: 分) */

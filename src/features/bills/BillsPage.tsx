@@ -5,6 +5,9 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Zap, Search, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
 import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
+import TxDeleteButton from '@/shared/components/TxDeleteButton';
+import { useTransactionStore } from '@/features/transaction/store';
+import { useToast } from '@/shared/hooks/useToast';
 import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
@@ -118,6 +121,17 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
   }, [buildFilter]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  /** 行删除：确认后走 store 软删，刷新列表 */
+  async function handleDeleteTx(id: string) {
+    try {
+      await useTransactionStore.getState().deleteTransaction(id);
+      useToast.getState().success('已删除');
+      reload();
+    } catch {
+      useToast.getState().error('删除失败');
+    }
+  }
 
   // 按日期分组
   const grouped = transactions.reduce<Record<string, Transaction[]>>((acc, tx) => {
@@ -365,6 +379,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
                   tags={fmt.tagsList}
                   keyword={keyword}
                   onLongPress={() => setEditingTx(tx)}
+                  onDelete={() => handleDeleteTx(tx.id)}
                 />
               );
             })}
@@ -454,9 +469,10 @@ function highlight(text: string, keyword: string): React.ReactNode {
   );
 }
 
-function TxItem({ cat, fallbackName, note, time, account, amount, type, tags, keyword, onLongPress }: {
+function TxItem({ cat, fallbackName, note, time, account, amount, type, tags, keyword, onLongPress, onDelete }: {
   cat: Category | null; fallbackName: string; note: string; time: string;
-  account: string; amount: number; type: string; tags: string[]; keyword?: string; onLongPress: () => void;
+  account: string; amount: number; type: string; tags: string[]; keyword?: string;
+  onLongPress: () => void; onDelete?: () => void;
 }) {
   const isExpense = type === 'expense';
   const isIncome = type === 'income';
@@ -513,6 +529,7 @@ function TxItem({ cat, fallbackName, note, time, account, amount, type, tags, ke
       }}>
         {isExpense ? '-' : isIncome ? '+' : ''}{MoneyUtils.format(amount).replace('¥', '')}
       </span>
+      {onDelete && <TxDeleteButton onDelete={onDelete} />}
     </div>
   );
 }

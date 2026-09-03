@@ -59,8 +59,8 @@ export default function SettingsPage() {
         <AccountManager hideHeading />
       </Accordion>
 
-      {/* 分类管理 — 抽屉盒 */}
-      <Accordion title="分类管理" count={`${categories.length} 个分类`} defaultOpen={false}>
+      {/* 分类管理 — 抽屉盒（默认展开，保留 支出分类/收入分类 大标题分组） */}
+      <Accordion title="分类管理" count={`${categories.length} 个分类`} defaultOpen>
         <CategoryManager hideHeading />
       </Accordion>
 

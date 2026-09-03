@@ -159,9 +159,9 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
       {/* 金额输入区 */}
       <div style={{ padding: '28px 24px 16px', textAlign: 'center' }}>
         <div style={{
-          position: 'relative', display: 'inline-flex',
-          alignItems: 'baseline', justifyContent: 'center',
-          marginBottom: 20, maxWidth: '100%',
+          position: 'relative', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          marginBottom: 20, width: '100%', minHeight: 56,
         }}>
           {/* ¥ 符号 + 数字 + 光标 整体居中 */}
           <span style={{

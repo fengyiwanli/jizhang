@@ -11,6 +11,9 @@ import * as echarts from 'echarts';
 import { BarChart3, ArrowLeft, ArrowLeftRight, Calendar } from 'lucide-react';
 import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
+import { useTransactionStore } from '@/features/transaction/store';
+import { useToast } from '@/shared/hooks/useToast';
+import TxDeleteButton from '@/shared/components/TxDeleteButton';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 import type { Transaction } from '@/domain/entities/Transaction';
 import { getCategoryColor, tintColor, resolveCategoryIcon } from '@/shared/components/CategoryIcons';
@@ -194,6 +197,17 @@ export default function StatsPage() {
     setDayIncomeStats(inc);
     setDayTxs(txs);
     setLoading(false);
+  }
+
+  /** 删除当日某条记录并刷新日视图 */
+  async function handleDayDelete(id: string) {
+    try {
+      await useTransactionStore.getState().deleteTransaction(id);
+      useToast.getState().success('已删除');
+      loadDayData();
+    } catch {
+      useToast.getState().error('删除失败');
+    }
   }
 
   // 月趋势柱状图（补齐整月日期，点击切日视图）
@@ -440,7 +454,8 @@ export default function StatsPage() {
               </div>
             )}
             {dayTxs.map((tx, i) => (
-              <DayTxRow key={tx.id} tx={tx} last={i === dayTxs.length - 1} />
+              <DayTxRow key={tx.id} tx={tx} last={i === dayTxs.length - 1}
+                onDelete={() => handleDayDelete(tx.id)} />
             ))}
           </div>
         </>
@@ -678,7 +693,7 @@ function CategoryBars({ title, stats, accent, onRowClick }: {
 }
 
 /** 日视图明细行 */
-function DayTxRow({ tx, last }: { tx: DayTxList[number]; last: boolean }) {
+function DayTxRow({ tx, last, onDelete }: { tx: DayTxList[number]; last: boolean; onDelete?: () => void }) {
   const isExp = tx.type === 'expense';
   const isTransfer = tx.type === 'transfer';
   const color = isTransfer ? 'var(--color-transfer)' : getCategoryColor(tx.categoryName ?? '');
@@ -716,6 +731,7 @@ function DayTxRow({ tx, last }: { tx: DayTxList[number]; last: boolean }) {
       }}>
         {isTransfer ? '' : (isExp ? '-' : '+')}¥{(tx.amount / 100).toFixed(2)}
       </span>
+      {onDelete && <TxDeleteButton onDelete={onDelete} />}
     </div>
   );
 }
@@ -990,6 +1006,16 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, cat.categoryId, categories.length]);
 
+  async function deleteDrillTx(id: string) {
+    try {
+      await useTransactionStore.getState().deleteTransaction(id);
+      useToast.getState().success('已删除');
+      setTxs((prev) => prev.filter((t) => t.id !== id));
+    } catch {
+      useToast.getState().error('删除失败');
+    }
+  }
+
   const total = txs.reduce((s, t) => s + t.amount, 0);
   const accent = cat.categoryColor || getCategoryColor(cat.categoryName);
   const IconComp = resolveCategoryIcon({ icon: cat.categoryIcon ?? null, name: cat.categoryName });
@@ -1080,6 +1106,7 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
                     }}>
                       {exp ? '-' : '+'}¥{(tx.amount / 100).toFixed(2)}
                     </span>
+                    <TxDeleteButton onDelete={() => deleteDrillTx(tx.id)} />
                   </div>
                 );
               })}

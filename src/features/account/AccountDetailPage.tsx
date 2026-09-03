@@ -6,6 +6,8 @@ import { ArrowLeft, Zap, ArrowLeftRight } from 'lucide-react';
 import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useTransactionStore } from '@/features/transaction/store';
+import TxDeleteButton from '@/shared/components/TxDeleteButton';
+import { useToast } from '@/shared/hooks/useToast';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
 import { getCategoryColor, resolveCategoryIcon, tintColor } from '@/shared/components/CategoryIcons';
 import { todayLocal } from '@/core/datetime';
@@ -20,6 +22,20 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
   const acc = accounts.find((a) => a.id === accountId);
   const [balance, setBalance] = useState(0);
   const [summary, setSummary] = useState<{ expense: number; income: number; count: number }>({ expense: 0, income: 0, count: 0 });
+
+  /** 删除某条流水并刷新余额/汇总 */
+  async function handleDeleteTx(id: string) {
+    try {
+      await useTransactionStore.getState().deleteTransaction(id);
+      useToast.getState().success('已删除');
+      await loadTransactions(10000);
+      const { accountRepo, statsRepo } = getAppContext();
+      setBalance(await accountRepo.getBalance(accountId));
+      setSummary(await statsRepo.getAccountSummary(accountId));
+    } catch {
+      useToast.getState().error('删除失败');
+    }
+  }
 
   useEffect(() => {
     loadTransactions(10000);
@@ -141,6 +157,7 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
                     }}>
                       {isTransfer ? '' : isOut ? '-' : '+'}¥{(tx.amount / 100).toFixed(2)}
                     </span>
+                    <TxDeleteButton onDelete={() => handleDeleteTx(tx.id)} />
                   </div>
                 );
               })}

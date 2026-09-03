@@ -36,7 +36,16 @@ const ACCOUNT_SETTING_KEY = 'default_account_id';
 type View = { type: 'tabs'; tab: string } | { type: 'settings' } | { type: 'recurring' } | { type: 'account'; accountId: string };
 
 export default function App() {
-  const [view, setView] = useState<View>({ type: 'tabs', tab: 'home' });
+  // 导航栈：子页面(设置/固定收支/账户)逐层压栈；Android 系统返回手势弹栈回上一页，而不是退出
+  const [stack, setStack] = useState<View[]>([{ type: 'tabs', tab: 'home' }]);
+  const view = stack[stack.length - 1]!;
+  const navigate = (v: View) => setStack((prev) => [...prev, v]);
+  const goBack = () => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  const switchTab = (tab: string) => {
+    setStack((prev) => (prev[prev.length - 1]?.type === 'tabs'
+      ? [...prev.slice(0, -1), { type: 'tabs', tab }]
+      : [...prev, { type: 'tabs', tab }]));
+  };
   const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
 
@@ -46,6 +55,17 @@ export default function App() {
 
   useEffect(() => {
     initializeApp().then(() => setReady(true)).catch((e) => setInitError((e as Error).message));
+  }, []);
+
+  // 捕获系统返回（手势/按键/browser back）：只回上一页，不退出；root 上也维持一个历史项
+  useEffect(() => {
+    window.history.pushState({}, '');
+    const onPop = () => {
+      setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+      window.history.pushState({}, '');
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   // ready 后从 SQLite 读取当前月预算 + 默认账户
@@ -76,7 +96,7 @@ export default function App() {
 
   function handleTagClick(tag: string) {
     setBillsTagFilter(tag);
-    setView({ type: 'tabs', tab: 'bills' });
+    switchTab('bills');
   }
 
   async function handleClearData() {
@@ -111,8 +131,8 @@ export default function App() {
           budgetInYuan={budgetInYuan}
           budgetOnChange={handleBudgetChange}
           onClearData={handleClearData}
-          onOpenRecurring={() => setView({ type: 'recurring' })}
-          onBack={() => setView({ type: 'tabs', tab: 'home' })}
+          onOpenRecurring={() => navigate({ type: 'recurring' })}
+          onBack={goBack}
         />
       </ErrorBoundary>
     );
@@ -121,7 +141,7 @@ export default function App() {
   if (view.type === 'recurring') {
     return (
       <ErrorBoundary>
-        <RecurringManager onBack={() => setView({ type: 'settings' })} />
+        <RecurringManager onBack={goBack} />
       </ErrorBoundary>
     );
   }
@@ -129,7 +149,7 @@ export default function App() {
   if (view.type === 'account') {
     return (
       <ErrorBoundary>
-        <AccountDetailPage accountId={view.accountId} onBack={() => setView({ type: 'tabs', tab: 'home' })} />
+        <AccountDetailPage accountId={view.accountId} onBack={goBack} />
       </ErrorBoundary>
     );
   }
@@ -143,8 +163,8 @@ export default function App() {
       key: 'home', label: '首页', icon: BookOpen,
       content: (
         <div>
-          <PageHeader title={pageTitles.home} onSettings={() => setView({ type: 'settings' })} />
-          <HomePage defAccountId={defaultAccountId} onTagClick={handleTagClick} onAccountClick={(id) => setView({ type: 'account', accountId: id })} />
+          <PageHeader title={pageTitles.home} onSettings={() => navigate({ type: 'settings' })} />
+          <HomePage defAccountId={defaultAccountId} onTagClick={handleTagClick} onAccountClick={(id) => navigate({ type: 'account', accountId: id })} />
         </div>
       ),
     },
@@ -152,7 +172,7 @@ export default function App() {
       key: 'stats', label: '统计', icon: TrendingUp,
       content: (
         <div>
-          <PageHeader title={pageTitles.stats} onSettings={() => setView({ type: 'settings' })} />
+          <PageHeader title={pageTitles.stats} onSettings={() => navigate({ type: 'settings' })} />
           <StatsPage />
         </div>
       ),
@@ -161,7 +181,7 @@ export default function App() {
       key: 'bills', label: '账单', icon: ListFilter,
       content: (
         <div>
-          <PageHeader title={pageTitles.bills} onSettings={() => setView({ type: 'settings' })} />
+          <PageHeader title={pageTitles.bills} onSettings={() => navigate({ type: 'settings' })} />
           <BillsPage key={billsTagFilter} initialTag={billsTagFilter || undefined} />
         </div>
       ),
@@ -170,7 +190,7 @@ export default function App() {
       key: 'mine', label: '我的', icon: User,
       content: (
         <div>
-          <PageHeader title={pageTitles.mine} onSettings={() => setView({ type: 'settings' })} />
+          <PageHeader title={pageTitles.mine} onSettings={() => navigate({ type: 'settings' })} />
           <SettingsPage />
         </div>
       ),
@@ -180,7 +200,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ToastContainer />
-      <TabBar tabs={tabs} activeTab={tab} onTabChange={(k) => setView({ type: 'tabs', tab: k })} />
+      <TabBar tabs={tabs} activeTab={tab} onTabChange={switchTab} />
     </ErrorBoundary>
   );
 }

@@ -1,4 +1,6 @@
-import { Component, type ReactNode, useState, useEffect } from 'react';
+import { Component, type ReactNode, useState, useEffect, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import { BookOpen, TrendingUp, ListFilter, User } from 'lucide-react';
 import TabBar from '@/shared/components/TabBar';
 import { ToastContainer } from '@/shared/components/Toast';
@@ -48,6 +50,8 @@ export default function App() {
   };
   const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const stackRef = useRef(1);
+  useEffect(() => { stackRef.current = stack.length; }, [stack]);
 
   const [budgetInYuan, setBudgetInYuan] = useState<number | null>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
@@ -57,8 +61,20 @@ export default function App() {
     initializeApp().then(() => setReady(true)).catch((e) => setInitError((e as Error).message));
   }, []);
 
-  // 捕获系统返回（手势/按键/browser back）：只回上一页，不退出；root 上也维持一个历史项
+  // 系统返回（手势/按键）：原生 App 用 backButton 事件弹栈；网页端用 history/popstate
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const handler = CapApp.addListener('backButton', () => {
+        if (stackRef.current > 1) {
+          goBack();
+        } else {
+          // 已在首页：按系统习惯退出
+          CapApp.exitApp();
+        }
+      });
+      return () => { handler.then((h) => h.remove()).catch(() => {}); };
+    }
+    // 非原生（浏览器预览）：维持一个历史项，返回手势走 popstate 弹栈
     window.history.pushState({}, '');
     const onPop = () => {
       setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
@@ -66,7 +82,8 @@ export default function App() {
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goBack]);
 
   // ready 后从 SQLite 读取当前月预算 + 默认账户
   useEffect(() => {

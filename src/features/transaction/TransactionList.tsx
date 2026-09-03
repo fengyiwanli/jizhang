@@ -8,6 +8,8 @@ import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
 import { getCategoryColor, resolveCategoryIcon, tintColor } from '@/shared/components/CategoryIcons';
 import { useToast } from '@/shared/hooks/useToast';
+import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
+import type { Transaction } from '@/domain/entities/Transaction';
 import { todayLocal } from '@/core/datetime';
 import { Zap, Trash2, ArrowLeftRight } from 'lucide-react';
 
@@ -20,10 +22,15 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
 
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /** 长按 → 编辑账单（删除用右侧垃圾桶按钮） */
   function startLongPress(id: string) {
-    longPressTimer.current = setTimeout(() => setConfirmId(id), 500);
+    longPressTimer.current = setTimeout(() => {
+      const tx = transactions.find((t) => t.id === id);
+      if (tx) setEditingTx(tx);
+    }, 600);
   }
   function cancelLongPress() {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
@@ -114,7 +121,7 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
                         onMouseDown={() => startLongPress(tx.id)}
                         onMouseUp={cancelLongPress}
                         onMouseLeave={cancelLongPress}
-                        onContextMenu={(e) => { e.preventDefault(); showConfirm(tx.id); }}
+                        onContextMenu={(e) => { e.preventDefault(); setEditingTx(tx); }}
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           padding: '14px 16px',
@@ -226,6 +233,13 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
             </div>
           </div>
         </div>
+      )}
+      {editingTx && (
+        <TransactionEditSheet
+          tx={editingTx}
+          onClose={() => setEditingTx(null)}
+          onSaved={() => setEditingTx(null)}
+        />
       )}
     </>
   );

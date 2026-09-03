@@ -2,7 +2,7 @@
  * 统计分析页面
  *
  * 视图: 日 / 周 / 月 / 年 / 自定义
- * - 视图统一布局：收支总览(支出/收入/结余) + 收入/支出构成(CategoryBars) + 环比 + 趋势；点击构成分类查看分类账单详情，趋势图长按切换
+ * - 视图统一布局：收支总览(支出/收入/结余) + 收入/支出构成(CategoryBars) + 环比 + 趋势；点击构成分类查看分类账单详情（长按条目可编辑/删除）
  * - 日视图: 日期导航 + 收支总览 + 当天分类构成 + 当天明细
  * - 年视图: 年度总览 + 构成 + 环比 + 月度柱状图
  */
@@ -14,6 +14,8 @@ import { useCategoryStore } from '@/features/category/store';
 import { useTransactionStore } from '@/features/transaction/store';
 import { useToast } from '@/shared/hooks/useToast';
 import TxDeleteButton from '@/shared/components/TxDeleteButton';
+import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
+import useRowLongPress from '@/shared/hooks/useRowLongPress';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 import type { Transaction } from '@/domain/entities/Transaction';
 import { getCategoryColor, tintColor, resolveCategoryIcon } from '@/shared/components/CategoryIcons';
@@ -80,6 +82,8 @@ export default function StatsPage() {
   const [dayTxs, setDayTxs] = useState<DayTxList>([]);
   // 分类账单详情弹层
   const [drill, setDrill] = useState<{ from: string; to: string; cat: CategoryStat } | null>(null);
+  // 日视图编辑
+  const [editingDay, setEditingDay] = useState<Transaction | null>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -210,6 +214,14 @@ export default function StatsPage() {
     }
   }
 
+  /** 日视图长按编辑：按 id 取完整交易实体再打开编辑弹层 */
+  async function openDayEdit(id: string) {
+    try {
+      const full = await getAppContext().transactionRepo.getById(id);
+      if (full) setEditingDay(full);
+    } catch { /* ignore */ }
+  }
+
   // 月趋势柱状图（补齐整月日期，点击切日视图）
   useEffect(() => {
     if (!lineRef.current || monthTrend.length === 0) return;
@@ -229,14 +241,6 @@ export default function StatsPage() {
         { name: '支出', type: 'bar', data: monthTrend.map((d) => d.expense), itemStyle: { color: CHART_EXPENSE, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 16 },
         { name: '收入', type: 'bar', data: monthTrend.map((d) => d.income), itemStyle: { color: CHART_INCOME, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 16 },
       ],
-    });
-
-    // 长按柱子 → 本页切到「日」视图（单击不再跳转）
-    bindBarLongPress(chart, (idx) => {
-      if (idx >= 0 && idx < monthTrend.length) {
-        setDay(monthTrend[idx]!.date);
-        setView('day');
-      }
     });
 
     return () => chart.dispose();
@@ -264,17 +268,6 @@ export default function StatsPage() {
       ],
     });
 
-    // 长按月份柱 → 切到对应月视图（单击不再跳转）
-    bindBarLongPress(chart, (idx) => {
-      if (idx >= 0 && idx < yearlyTrend.length) {
-        const m = yearlyTrend[idx]!.month;
-        if (m) {
-          setYearMonth(m);
-          setView('month');
-        }
-      }
-    });
-
     return () => chart.dispose();
   }, [yearlyTrend]);
 
@@ -297,14 +290,6 @@ export default function StatsPage() {
         { name: '支出', type: 'bar', data: weekDaily.map((d) => d.expense), itemStyle: { color: CHART_EXPENSE, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 14 },
         { name: '收入', type: 'bar', data: weekDaily.map((d) => d.income), itemStyle: { color: CHART_INCOME, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 14 },
       ],
-    });
-
-    // 长按周柱 → 看对应日
-    bindBarLongPress(chart, (idx) => {
-      if (idx >= 0 && idx < weekDaily.length) {
-        setDay(weekDaily[idx]!.date);
-        setView('day');
-      }
     });
 
     return () => chart.dispose();
@@ -455,7 +440,8 @@ export default function StatsPage() {
             )}
             {dayTxs.map((tx, i) => (
               <DayTxRow key={tx.id} tx={tx} last={i === dayTxs.length - 1}
-                onDelete={() => handleDayDelete(tx.id)} />
+                onDelete={() => handleDayDelete(tx.id)}
+                onEdit={() => openDayEdit(tx.id)} />
             ))}
           </div>
         </>
@@ -492,7 +478,7 @@ export default function StatsPage() {
             incomePrev={weekData.lastWeekIncome}
           />
           {weekDaily.length > 0 && (
-            <ChartCard title="本周每日收支 (长按柱子看当天)">
+            <ChartCard title="本周每日收支">
               <div ref={weekBarRef} style={{ height: 170 }} />
             </ChartCard>
           )}
@@ -551,7 +537,7 @@ export default function StatsPage() {
           {expenseStats.length === 0 && incomeStats.length === 0 && <EmptyHint />}
 
           {dailyTrend.length > 0 && (
-            <ChartCard title="每日趋势 (长按柱子看当天)">
+            <ChartCard title="每日趋势">
               <div ref={lineRef} style={{ height: 180 }} />
             </ChartCard>
           )}
@@ -591,7 +577,7 @@ export default function StatsPage() {
           )}
 
           {yearlyTrend.length > 0 && (
-            <ChartCard title="月度收支 (长按月份看当月)">
+            <ChartCard title="月度收支">
               <div ref={barRef} style={{ height: 220 }} />
             </ChartCard>
           )}
@@ -601,6 +587,13 @@ export default function StatsPage() {
 
       {/* 分类账单详情（点击构成条目弹出） */}
       {drill && <CategoryDrillOverlay from={drill.from} to={drill.to} cat={drill.cat} onClose={() => setDrill(null)} />}
+      {editingDay && (
+        <TransactionEditSheet
+          tx={editingDay}
+          onClose={() => setEditingDay(null)}
+          onSaved={() => { setEditingDay(null); loadDayData(); }}
+        />
+      )}
     </div>
   );
 }
@@ -692,8 +685,10 @@ function CategoryBars({ title, stats, accent, onRowClick }: {
   );
 }
 
-/** 日视图明细行 */
-function DayTxRow({ tx, last, onDelete }: { tx: DayTxList[number]; last: boolean; onDelete?: () => void }) {
+/** 日视图明细行（长按编辑 / 右侧删除） */
+function DayTxRow({ tx, last, onDelete, onEdit }: {
+  tx: DayTxList[number]; last: boolean; onDelete?: () => void; onEdit?: () => void;
+}) {
   const isExp = tx.type === 'expense';
   const isTransfer = tx.type === 'transfer';
   const color = isTransfer ? 'var(--color-transfer)' : getCategoryColor(tx.categoryName ?? '');
@@ -701,12 +696,25 @@ function DayTxRow({ tx, last, onDelete }: { tx: DayTxList[number]; last: boolean
   const name = isTransfer
     ? '转账'
     : tx.categoryName ?? (isExp ? '支出' : '收入');
+  const long = useRowLongPress(600);
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '10px 0', borderBottom: last ? 'none' : '0.5px solid var(--color-divider)',
-    }}>
+    <div
+      className="row-press"
+      role={onEdit ? 'button' : undefined}
+      onTouchStart={onEdit ? long.onStart(onEdit) : undefined}
+      onTouchEnd={onEdit ? long.onCancel : undefined}
+      onTouchMove={onEdit ? long.onCancel : undefined}
+      onMouseDown={onEdit ? long.onStart(onEdit) : undefined}
+      onMouseUp={onEdit ? long.onCancel : undefined}
+      onMouseLeave={onEdit ? long.onCancel : undefined}
+      onContextMenu={onEdit ? (e) => { e.preventDefault(); onEdit(); } : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 0', borderBottom: last ? 'none' : '0.5px solid var(--color-divider)',
+        userSelect: 'none', WebkitUserSelect: 'none',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 9, background: tintColor(color),
@@ -930,53 +938,6 @@ function endOfMonth(ym: string): string {
   return `${ym}-${String(daysInMonth(ym)).padStart(2, '0')}`;
 }
 
-/** echarts 柱状图长按（600ms）→ 回调分类下标；单击/滑动均不触发 */
-function bindBarLongPress(chart: echarts.ECharts, cb: (idx: number) => void) {
-  const dom = chart.getDom();
-  const zr = chart.getZr();
-  let timer: number | null = null;
-  let sx = 0; let sy = 0;
-
-  const stop = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
-  const pos = (e: unknown) => {
-    const ev = (e ?? {}) as { touches?: Array<{ clientX: number; clientY: number }>; changedTouches?: Array<{ clientX: number; clientY: number }>; clientX?: number; clientY?: number; offsetX?: number; offsetY?: number };
-    const raw = ev.touches?.[0] ?? ev.changedTouches?.[0] ?? ev;
-    const p = raw as { clientX?: number; clientY?: number; offsetX?: number; offsetY?: number };
-    const rect = dom.getBoundingClientRect();
-    const cx = p.clientX !== undefined ? p.clientX : (p.offsetX ?? 0);
-    const cy = p.clientY !== undefined ? p.clientY : (p.offsetY ?? 0);
-    return { x: cx - rect.left, y: cy - rect.top };
-  };
-  const start = (e: unknown) => {
-    const { x, y } = pos(e);
-    sx = x; sy = y;
-    stop();
-    timer = window.setTimeout(() => {
-      try {
-        const conv = chart.convertFromPixel({ xAxisIndex: 0 }, [sx, sy]);
-        const idx = Array.isArray(conv) ? Math.round(Number(conv[0]) || 0) : -1;
-        if (idx >= 0) cb(idx);
-      } catch { /* ignore */ }
-    }, 600);
-  };
-  const move = (e: unknown) => {
-    if (timer !== null) {
-      const { x, y } = pos(e);
-      if (Math.abs(x - sx) + Math.abs(y - sy) > 6) stop();
-    }
-  };
-
-  zr.on('mousedown', start);
-  zr.on('mousemove', move);
-  zr.on('mouseup', stop);
-  zr.on('mouseout', stop);
-  zr.on('click', stop);
-  zr.on('touchstart', start);
-  zr.on('touchmove', move);
-  zr.on('touchend', stop);
-  zr.on('touchcancel', stop);
-}
-
 /** 点击分类构成条目 → 该分类（含二级子分类）在所选时间范围的账单明细 */
 function CategoryDrillOverlay({ from, to, cat, onClose }: {
   from: string; to: string; cat: CategoryStat; onClose: () => void;
@@ -984,25 +945,32 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
   const categories = useCategoryStore((s) => s.categories);
   const loadCategories = useCategoryStore((s) => s.loadCategories);
   const [txs, setTxs] = useState<Transaction[]>([]);
+  const [editing, setEditing] = useState<Transaction | null>(null);
+  const long = useRowLongPress(600);
 
   useEffect(() => {
     if (categories.length === 0) loadCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
+  async function loadRows() {
     if (categories.length === 0) return;
     const ids = new Set<string>([cat.categoryId]);
     for (const c of categories) if (c.parentId === cat.categoryId) ids.add(c.id);
     const { transactionRepo } = getAppContext();
-    transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: from, dateTo: to, limit: 3000 })
-      .then((all) => {
-        const list = all
-          .filter((t) => t.categoryId && ids.has(t.categoryId))
-          .sort((a, b) => `${b.date} ${b.time ?? ''}`.localeCompare(`${a.date} ${a.time ?? ''}`));
-        setTxs(list);
-      })
-      .catch(() => setTxs([]));
+    try {
+      const all = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: from, dateTo: to, limit: 3000 });
+      const list = all
+        .filter((t) => t.categoryId && ids.has(t.categoryId))
+        .sort((a, b) => `${b.date} ${b.time ?? ''}`.localeCompare(`${a.date} ${a.time ?? ''}`));
+      setTxs(list);
+    } catch {
+      setTxs([]);
+    }
+  }
+
+  useEffect(() => {
+    loadRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, cat.categoryId, categories.length]);
 
@@ -1010,7 +978,7 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
     try {
       await useTransactionStore.getState().deleteTransaction(id);
       useToast.getState().success('已删除');
-      setTxs((prev) => prev.filter((t) => t.id !== id));
+      await loadRows();
     } catch {
       useToast.getState().error('删除失败');
     }
@@ -1091,11 +1059,23 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
               {g.rows.map((tx, i) => {
                 const exp = tx.type === 'expense';
                 return (
-                  <div key={tx.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderBottom: i < g.rows.length - 1 ? '0.5px solid var(--color-divider)' : 'none',
-                  }}>
+                  <div
+                    key={tx.id}
+                    className="row-press"
+                    role="button"
+                    onTouchStart={long.onStart(() => setEditing(tx))}
+                    onTouchEnd={long.onCancel}
+                    onTouchMove={long.onCancel}
+                    onMouseDown={long.onStart(() => setEditing(tx))}
+                    onMouseUp={long.onCancel}
+                    onMouseLeave={long.onCancel}
+                    onContextMenu={(e) => { e.preventDefault(); setEditing(tx); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderBottom: i < g.rows.length - 1 ? '0.5px solid var(--color-divider)' : 'none',
+                    }}
+                  >
                     <div style={{ fontSize: 13, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                       {tx.time?.slice(0, 5)}{tx.note ? ` · ${tx.note}` : ''}
                     </div>
@@ -1114,6 +1094,14 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
           </div>
         ))}
       </div>
+
+      {editing && (
+        <TransactionEditSheet
+          tx={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); loadRows(); }}
+        />
+      )}
     </div>
   );
 }

@@ -51,7 +51,6 @@ export default function CategoryManager({ hideHeading }: { hideHeading?: boolean
       <CatGroup
         title="支出分类"
         icon="💸"
-        color="var(--color-expense)"
         roots={rootsOf('expense')}
         categories={categories}
         onAddRoot={() => handleAdd('expense')}
@@ -61,7 +60,6 @@ export default function CategoryManager({ hideHeading }: { hideHeading?: boolean
       <CatGroup
         title="收入分类"
         icon="💰"
-        color="var(--color-income)"
         roots={rootsOf('income')}
         categories={categories}
         onAddRoot={() => handleAdd('income')}
@@ -82,22 +80,61 @@ export default function CategoryManager({ hideHeading }: { hideHeading?: boolean
   );
 }
 
-/** 分类组：根分类网格 + 各根分类下的二级分类（可点击编辑） */
-function CatGroup({ title, icon, color, roots, categories, onAddRoot, onAddChild, onEdit }: {
-  title: string; icon: string; color: string;
+/** 分类组：支出/收入 各自一个抽屉盒，默认收起 */
+function CatGroup({ title, icon, roots, categories, onAddRoot, onAddChild, onEdit }: {
+  title: string; icon: string;
   roots: Category[]; categories: Category[];
   onAddRoot: () => void; onAddChild: (parentId: UUID) => void;
   onEdit: (cat: Category) => void;
 }) {
   const childrenOf = (pid: UUID) => categories.filter((c) => c.parentId === pid);
+  const [open, setOpen] = useState(false); // 默认收起
+  const childCount = roots.reduce((n, r) => n + childrenOf(r.id).length, 0);
 
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color }}>{icon} {title}</span>
-        <button className="btn-pill" onClick={onAddRoot}>+ 添加</button>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+    <div style={{
+      border: '1px solid var(--color-border)', borderRadius: 14,
+      marginBottom: 12, overflow: 'hidden', background: 'var(--color-card)',
+    }}>
+      {/* 大标题抽屉头 */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="row-press"
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          border: 'none', background: 'transparent', cursor: 'pointer',
+          fontFamily: 'inherit', padding: '13px 14px',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>{icon} {title}</span>
+          <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', whiteSpace: 'nowrap' }}>
+            {roots.length} 主分类{childCount > 0 ? ` · ${childCount} 子分类` : ''}
+          </span>
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <span
+            role="button"
+            onClick={(e) => { e.stopPropagation(); onAddRoot(); }}
+            style={{
+              fontSize: 12, color: 'var(--color-primary)', fontWeight: 600,
+              padding: '3px 10px', border: '1px solid var(--color-primary)', borderRadius: 9,
+              cursor: 'pointer', fontFamily: 'inherit', background: 'var(--color-primary-light)',
+            }}
+          >
+            + 添加
+          </span>
+          <ChevronDown
+            size={16}
+            color="var(--color-text-tertiary)"
+            style={{ transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'none' }}
+          />
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 14px 12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 6 }}>
         {roots.map((c) => <CatChip key={c.id} cat={c} onClick={() => onEdit(c)} />)}
       </div>
 
@@ -138,6 +175,8 @@ function CatGroup({ title, icon, color, roots, categories, onAddRoot, onAddChild
           </div>
         );
       })}
+        </div>
+      )}
     </div>
   );
 }

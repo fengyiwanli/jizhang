@@ -7,7 +7,10 @@ import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useTransactionStore } from '@/features/transaction/store';
 import TxDeleteButton from '@/shared/components/TxDeleteButton';
+import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
+import useRowLongPress from '@/shared/hooks/useRowLongPress';
 import { useToast } from '@/shared/hooks/useToast';
+import type { Transaction } from '@/domain/entities/Transaction';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
 import { getCategoryColor, resolveCategoryIcon, tintColor } from '@/shared/components/CategoryIcons';
 import { todayLocal } from '@/core/datetime';
@@ -22,16 +25,23 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
   const acc = accounts.find((a) => a.id === accountId);
   const [balance, setBalance] = useState(0);
   const [summary, setSummary] = useState<{ expense: number; income: number; count: number }>({ expense: 0, income: 0, count: 0 });
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const lp = useRowLongPress(600);
 
   /** 删除某条流水并刷新余额/汇总 */
+  /** 流水变动后刷新余额/汇总 */
+  async function refreshData() {
+    await loadTransactions(10000);
+    const { accountRepo, statsRepo } = getAppContext();
+    setBalance(await accountRepo.getBalance(accountId));
+    setSummary(await statsRepo.getAccountSummary(accountId));
+  }
+
   async function handleDeleteTx(id: string) {
     try {
       await useTransactionStore.getState().deleteTransaction(id);
       useToast.getState().success('已删除');
-      await loadTransactions(10000);
-      const { accountRepo, statsRepo } = getAppContext();
-      setBalance(await accountRepo.getBalance(accountId));
-      setSummary(await statsRepo.getAccountSummary(accountId));
+      await refreshData();
     } catch {
       useToast.getState().error('删除失败');
     }
@@ -128,10 +138,23 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
                 const isOut = tx.type === 'expense' || (tx.type === 'transfer' && tx.accountId === accountId);
 
                 return (
-                  <div key={tx.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 16px', borderBottom: i < grouped[date].length - 1 ? '1px solid var(--color-bg-secondary)' : 'none',
-                  }}>
+                  <div
+                    key={tx.id}
+                    className="row-press"
+                    role="button"
+                    onTouchStart={lp.onStart(() => setEditingTx(tx))}
+                    onTouchEnd={lp.onCancel}
+                    onTouchMove={lp.onCancel}
+                    onMouseDown={lp.onStart(() => setEditingTx(tx))}
+                    onMouseUp={lp.onCancel}
+                    onMouseLeave={lp.onCancel}
+                    onContextMenu={(e) => { e.preventDefault(); setEditingTx(tx); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', borderBottom: i < grouped[date].length - 1 ? '1px solid var(--color-bg-secondary)' : 'none',
+                      userSelect: 'none', WebkitUserSelect: 'none',
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                       <div style={{
                         width: 36, height: 36, borderRadius: 10,
@@ -165,6 +188,14 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
           </div>
         ))}
       </div>
+
+      {editingTx && (
+        <TransactionEditSheet
+          tx={editingTx}
+          onClose={() => setEditingTx(null)}
+          onSaved={() => { setEditingTx(null); refreshData(); }}
+        />
+      )}
     </div>
   );
 }

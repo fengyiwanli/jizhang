@@ -17,7 +17,6 @@ export default function SettingsPage() {
   const loadTransactions = useTransactionStore((s) => s.loadTransactions);
   const accounts = useAccountStore((s) => s.accounts);
   const transactions = useTransactionStore((s) => s.transactions);
-  const categories = useCategoryStore((s) => s.categories);
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
@@ -59,10 +58,10 @@ export default function SettingsPage() {
         <AccountManager hideHeading />
       </Accordion>
 
-      {/* 分类管理 — 抽屉盒（默认展开，保留 支出分类/收入分类 大标题分组） */}
-      <Accordion title="分类管理" count={`${categories.length} 个分类`} defaultOpen>
-        <CategoryManager hideHeading />
-      </Accordion>
+      {/* 分类管理 — 支出分类 / 收入分类 各自独立抽屉（默认收起） */}
+      <Section>
+        <CategoryManager />
+      </Section>
 
       {/* 数据导出 */}
       <Section>

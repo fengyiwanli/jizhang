@@ -196,6 +196,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
                 { v: 'all', label: '全部' },
                 { v: 'expense', label: '支出' },
                 { v: 'income', label: '收入' },
+                { v: 'transfer', label: '转账' },
               ] as const).map(({ v, label }) => (
                 <Chip
                   key={v}
@@ -213,7 +214,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
               <Trigger
                 text={draft.cat === 'all'
                   ? '全部分类'
-                  : (() => { const c = getCat(categories, draft.cat); return c ? `${c.icon} ${c.name}` : '全部分类'; })()}
+                  : (() => { const c = getCat(categories, draft.cat); return c ? c.name : '全部分类'; })()}
                 placeholder={draft.cat === 'all'}
                 onClick={() => setSheet('category')}
               />
@@ -301,6 +302,12 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
       {/* 列表 */}
       {loading && transactions.length === 0 && <p style={{ textAlign: 'center', color: 'var(--color-text-tertiary)', padding: 20 }}>加载中...</p>}
 
+      {!loading && transactions.length > 0 && (
+        <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', padding: '2px 4px 8px' }}>
+          长按记录可编辑或删除
+        </div>
+      )}
+
       {!loading && transactions.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-tertiary)' }}>
           <Search size={40} strokeWidth={1.2} color="#C7C7CC" />
@@ -357,7 +364,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
                   type={tx.type}
                   tags={fmt.tagsList}
                   keyword={keyword}
-                  onClick={() => setEditingTx(tx)}
+                  onLongPress={() => setEditingTx(tx)}
                 />
               );
             })}
@@ -447,21 +454,37 @@ function highlight(text: string, keyword: string): React.ReactNode {
   );
 }
 
-function TxItem({ cat, fallbackName, note, time, account, amount, type, tags, keyword, onClick }: {
+function TxItem({ cat, fallbackName, note, time, account, amount, type, tags, keyword, onLongPress }: {
   cat: Category | null; fallbackName: string; note: string; time: string;
-  account: string; amount: number; type: string; tags: string[]; keyword?: string; onClick: () => void;
+  account: string; amount: number; type: string; tags: string[]; keyword?: string; onLongPress: () => void;
 }) {
   const isExpense = type === 'expense';
   const isIncome = type === 'income';
   const name = cat?.name ?? fallbackName;
   const IconComp = cat ? resolveCategoryIcon(cat) : Zap;
   const color = cat ? (cat.color || getCategoryColor(cat.name)) : getCategoryColor(name);
+  const lpRef = useRef<number | null>(null);
+  const startPress = () => { lpRef.current = window.setTimeout(onLongPress, 600); };
+  const cancelPress = () => { if (lpRef.current !== null) { clearTimeout(lpRef.current); lpRef.current = null; } };
 
   return (
-    <div className="row-press" onClick={onClick} role="button" style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '10px 8px', borderBottom: '1px solid var(--color-bg-secondary)',
-    }}>
+    <div
+      className="row-press"
+      role="button"
+      aria-label="长按编辑"
+      onTouchStart={startPress}
+      onTouchEnd={cancelPress}
+      onTouchMove={cancelPress}
+      onMouseDown={startPress}
+      onMouseUp={cancelPress}
+      onMouseLeave={cancelPress}
+      onContextMenu={(e) => { e.preventDefault(); onLongPress(); }}
+      style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '10px 8px', borderBottom: '1px solid var(--color-bg-secondary)',
+        userSelect: 'none', WebkitUserSelect: 'none',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 8,

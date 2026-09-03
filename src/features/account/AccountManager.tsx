@@ -19,7 +19,7 @@ const accountTypes: { value: AccountType; label: string; icon: LucideIcon }[] = 
   { value: 'e-wallet', label: '电子钱包', icon: Smartphone },
 ];
 
-export default function AccountManager() {
+export default function AccountManager({ hideHeading }: { hideHeading?: boolean } = {}) {
   const { accounts, loadAccounts } = useAccountStore();
   const transactions = useTransactionStore((s) => s.transactions);
   const loadTransactions = useTransactionStore((s) => s.loadTransactions);
@@ -50,10 +50,16 @@ export default function AccountManager() {
   }
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>账户管理</h3>
-        <button className="btn-pill" onClick={handleAdd}>+ 添加</button>
-      </div>
+      {hideHeading ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <button className="btn-pill" onClick={handleAdd}>+ 添加</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>账户管理</h3>
+          <button className="btn-pill" onClick={handleAdd}>+ 添加</button>
+        </div>
+      )}
 
       {accounts.map((acc) => {
             const AccIcon = accountTypes.find((t) => t.value === acc.type)?.icon ?? Banknote;

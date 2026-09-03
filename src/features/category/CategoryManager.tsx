@@ -15,7 +15,7 @@ import type { UUID } from '@/core/types';
 
 const COLOR_PRESETS = ['#E07B6C', '#FF9F43', '#FECA57', '#5FBB97', '#54A0FF', '#5F27CD', '#FF6FB5', '#00D2D3'];
 
-export default function CategoryManager() {
+export default function CategoryManager({ hideHeading }: { hideHeading?: boolean } = {}) {
   const { categories, loadCategories } = useCategoryStore();
   const [showForm, setShowForm] = useState(false);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
@@ -42,9 +42,11 @@ export default function CategoryManager() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>分类管理</h3>
-      </div>
+      {!hideHeading && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>分类管理</h3>
+        </div>
+      )}
 
       <CatGroup
         title="支出分类"

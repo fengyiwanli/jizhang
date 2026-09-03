@@ -2,6 +2,7 @@
  * 「我的」Tab 设置页面
  */
 import { useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import AccountManager from '@/features/account/AccountManager';
 import CategoryManager from '@/features/category/CategoryManager';
 import DataExport from '@/features/settings/DataExport';
@@ -16,6 +17,7 @@ export default function SettingsPage() {
   const loadTransactions = useTransactionStore((s) => s.loadTransactions);
   const accounts = useAccountStore((s) => s.accounts);
   const transactions = useTransactionStore((s) => s.transactions);
+  const categories = useCategoryStore((s) => s.categories);
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
@@ -52,20 +54,58 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* 账户管理 */}
-      <Section>
-        <AccountManager />
-      </Section>
+      {/* 账户管理 — 抽屉盒 */}
+      <Accordion title="账户管理" count={`${accounts.length} 个账户`} defaultOpen={false}>
+        <AccountManager hideHeading />
+      </Accordion>
 
-      {/* 分类管理 */}
-      <Section>
-        <CategoryManager />
-      </Section>
+      {/* 分类管理 — 抽屉盒 */}
+      <Accordion title="分类管理" count={`${categories.length} 个分类`} defaultOpen={false}>
+        <CategoryManager hideHeading />
+      </Accordion>
 
       {/* 数据导出 */}
       <Section>
         <DataExport />
       </Section>
+    </div>
+  );
+}
+
+/** 抽屉盒：点头部展开/收起内容 */
+function Accordion({ title, count, defaultOpen = false, children }: {
+  title: string; count?: string; defaultOpen?: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{
+      background: 'var(--color-card)', borderRadius: 16, padding: '0 14px', marginBottom: 12,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+    }}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="row-press"
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          border: 'none', background: 'transparent', cursor: 'pointer',
+          fontFamily: 'inherit', padding: '13px 0',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>{title}</span>
+          {count && (
+            <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{count}</span>
+          )}
+        </span>
+        <ChevronDown
+          size={16}
+          color="var(--color-text-tertiary)"
+          style={{ flexShrink: 0, transition: 'transform 200ms ease', transform: open ? 'rotate(180deg)' : 'none' }}
+        />
+      </button>
+      {open && (
+        <div style={{ padding: '2px 0 12px' }}>{children}</div>
+      )}
     </div>
   );
 }

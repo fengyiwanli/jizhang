@@ -6,7 +6,7 @@ import { useTransactionStore } from '@/features/transaction/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
-import { getCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
+import { getCategoryColor, resolveCategoryIcon, tintColor } from '@/shared/components/CategoryIcons';
 import { useToast } from '@/shared/hooks/useToast';
 import { todayLocal } from '@/core/datetime';
 import { Zap, Trash2, ArrowLeftRight } from 'lucide-react';
@@ -101,7 +101,8 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
                     const isExpense = tx.type === 'expense';
                     const isTransfer = tx.type === 'transfer';
                     const color = isTransfer ? 'var(--color-transfer)' : (cat?.color ?? getCategoryColor(cat?.name ?? ''));
-                    const IconComp = isTransfer ? ArrowLeftRight : (getCategoryIcon(cat?.name ?? '') ?? Zap);
+                    const IconComp = isTransfer ? ArrowLeftRight
+                      : (cat ? resolveCategoryIcon(cat) : Zap);
 
                     return (
                       <div

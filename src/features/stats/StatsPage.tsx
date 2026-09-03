@@ -8,9 +8,9 @@
  */
 import { useEffect, useState, useRef } from 'react';
 import * as echarts from 'echarts';
-import { Zap, BarChart3, ArrowLeftRight, Calendar } from 'lucide-react';
+import { BarChart3, ArrowLeftRight, Calendar } from 'lucide-react';
 import { getAppContext } from '@/data/init';
-import { getCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
+import { getCategoryColor, tintColor, resolveCategoryIcon } from '@/shared/components/CategoryIcons';
 import type { StatsRepository, MonthlySummary, CategoryStat, DailyTrend } from '@/data/repositories/StatsRepository';
 import { MoneyUtils } from '@/core/types';
 import { todayLocal } from '@/core/datetime';
@@ -577,7 +577,7 @@ function CategoryBars({ title, stats, accent }: {
 
       {/* 排行明细 */}
       {list.map((c, i) => {
-        const IconComp = getCategoryIcon(c.categoryName) ?? Zap;
+        const IconComp = resolveCategoryIcon({ icon: c.categoryIcon ?? null, name: c.categoryName });
         const pct = Math.round((c.amount / total) * 100);
         return (
           <div key={c.categoryId} style={{
@@ -627,7 +627,7 @@ function DayTxRow({ tx, last }: { tx: DayTxList[number]; last: boolean }) {
   const isExp = tx.type === 'expense';
   const isTransfer = tx.type === 'transfer';
   const color = isTransfer ? 'var(--color-transfer)' : getCategoryColor(tx.categoryName ?? '');
-  const IconComp = isTransfer ? ArrowLeftRight : (getCategoryIcon(tx.categoryName ?? '') ?? Zap);
+  const IconComp = isTransfer ? ArrowLeftRight : resolveCategoryIcon({ icon: tx.categoryIcon ?? null, name: tx.categoryName ?? '' });
   const name = isTransfer
     ? '转账'
     : tx.categoryName ?? (isExp ? '支出' : '收入');
@@ -753,7 +753,7 @@ function RankList({ title, stats, full }: { title: string; stats: CategoryStat[]
     <div style={{ background: 'var(--color-card)', borderRadius: 16, padding: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
       <h3 style={{ fontSize: 13, color: 'var(--color-text-primary)', marginBottom: 8, fontWeight: 600 }}>{title}</h3>
       {list.map((c, i) => {
-        const IconComp = getCategoryIcon(c.categoryName) ?? Zap;
+        const IconComp = resolveCategoryIcon({ icon: c.categoryIcon ?? null, name: c.categoryName });
         const color = c.categoryColor || getCategoryColor(c.categoryName);
         return (
           <div key={c.categoryId} style={{

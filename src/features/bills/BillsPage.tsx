@@ -4,11 +4,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Zap, Search, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
+import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
 import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
-import { getCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
+import { getCategoryColor, tintColor, resolveCategoryIcon } from '@/shared/components/CategoryIcons';
 import { MoneyUtils } from '@/core/types';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 import { todayLocal } from '@/core/datetime';
@@ -57,6 +58,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
   const [draft, setDraft] = useState<FilterState>(applied);
   const [showFilters, setShowFilters] = useState(false);
   const [sheet, setSheet] = useState<'category' | 'account' | null>(null);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [allTags, setAllTags] = useState<string[]>([]);
 
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
@@ -346,8 +348,8 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
               return (
                 <TxItem
                   key={tx.id}
-                  categoryName={cat?.name ?? null}
-                  name={cat?.name ?? (tx.type === 'expense' ? '支出' : tx.type === 'income' ? '收入' : '转账')}
+                  cat={cat ?? null}
+                  fallbackName={tx.type === 'expense' ? '支出' : tx.type === 'income' ? '收入' : '转账'}
                   note={tx.note}
                   time={tx.time?.slice(0, 5)}
                   account={acc ? `${acc.icon ?? ''} ${acc.name}` : ''}
@@ -355,6 +357,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
                   type={tx.type}
                   tags={fmt.tagsList}
                   keyword={keyword}
+                  onClick={() => setEditingTx(tx)}
                 />
               );
             })}
@@ -382,7 +385,8 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
           {categories.filter((c) => !c.parentId).map((c) => (
             <SheetOption
               key={c.id}
-              label={`${c.icon} ${c.name}`}
+              icon={catIconEl(c)}
+              label={c.name}
               selected={draft.cat === c.id}
               onSelect={() => { setDraft({ ...draft, cat: c.id }); setSheet(null); }}
             />
@@ -407,11 +411,26 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
           ))}
         </BottomSheet>
       )}
+
+      {/* 编辑账单弹层 */}
+      {editingTx && (
+        <TransactionEditSheet
+          tx={editingTx}
+          onClose={() => setEditingTx(null)}
+          onSaved={() => { setEditingTx(null); reload(); }}
+        />
+      )}
     </div>
   );
 }
 
 // --- 子组件 ---
+
+/** 分类名左侧小图标（Lucide key / emoji 名字映射统一） */
+function catIconEl(cat: Category, size = 16) {
+  const I = resolveCategoryIcon(cat);
+  return <I size={size} strokeWidth={1.8} color={cat.color || getCategoryColor(cat.name)} />;
+}
 
 function highlight(text: string, keyword: string): React.ReactNode {
   if (!keyword) return text;
@@ -428,17 +447,18 @@ function highlight(text: string, keyword: string): React.ReactNode {
   );
 }
 
-function TxItem({ categoryName, name, note, time, account, amount, type, tags, keyword }: {
-  categoryName: string | null; name: string; note: string; time: string;
-  account: string; amount: number; type: string; tags: string[]; keyword?: string;
+function TxItem({ cat, fallbackName, note, time, account, amount, type, tags, keyword, onClick }: {
+  cat: Category | null; fallbackName: string; note: string; time: string;
+  account: string; amount: number; type: string; tags: string[]; keyword?: string; onClick: () => void;
 }) {
   const isExpense = type === 'expense';
   const isIncome = type === 'income';
-  const IconComp = getCategoryIcon(categoryName ?? '') ?? Zap;
-  const color = getCategoryColor(categoryName ?? '');
+  const name = cat?.name ?? fallbackName;
+  const IconComp = cat ? resolveCategoryIcon(cat) : Zap;
+  const color = cat ? (cat.color || getCategoryColor(cat.name)) : getCategoryColor(name);
 
   return (
-    <div className="row-press" style={{
+    <div className="row-press" onClick={onClick} role="button" style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       padding: '10px 8px', borderBottom: '1px solid var(--color-bg-secondary)',
     }}>

@@ -7,7 +7,7 @@ import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useTransactionStore } from '@/features/transaction/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
-import { getCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
+import { getCategoryColor, resolveCategoryIcon, tintColor } from '@/shared/components/CategoryIcons';
 import { todayLocal } from '@/core/datetime';
 import { getAppContext } from '@/data/init';
 
@@ -106,7 +106,8 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
                 const cat = categories.find((c) => c.id === tx.categoryId);
                 const isTransfer = tx.type === 'transfer';
                 const color = isTransfer ? 'var(--color-transfer)' : (cat?.color ?? getCategoryColor(cat?.name ?? ''));
-                const IconComp = isTransfer ? ArrowLeftRight : (getCategoryIcon(cat?.name ?? '') ?? Zap);
+                const IconComp = isTransfer ? ArrowLeftRight
+                  : (cat ? resolveCategoryIcon(cat) : Zap);
                 // 该账户视角：转出/支出为负，收入/转入为正
                 const isOut = tx.type === 'expense' || (tx.type === 'transfer' && tx.accountId === accountId);
 

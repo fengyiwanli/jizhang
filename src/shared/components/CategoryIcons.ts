@@ -10,6 +10,9 @@ import {
   Briefcase, Wallet, TrendingUp, RotateCcw, Zap, Coffee, Bus,
   Music, Stethoscope, GraduationCap, Wrench, Banknote,
   Fuel, CircleParking, TrainFront, Cookie, Package,
+  Cake, Beer, Pizza, ShoppingCart, Footprints, Bike,
+  Sofa, Lightbulb, Sparkles, Clapperboard, Ticket, PenLine,
+  Pill, PawPrint, Baby, PiggyBank, Phone, Tv, Camera, Globe,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -79,4 +82,49 @@ export function tintColor(color: string): string {
   if (color.startsWith('#')) return `${color}1A`;
   // CSS 变量场景：用黑底 10% 半透明近似（列表底色为白/浅灰，效果等同浅色遮罩）
   return 'rgba(0, 0, 0, 0.055)';
+}
+
+/* ================= Lucide key 图标体系 =================
+ * 从分类管理表单保存起，分类的 icon 字段存「Lucide 组件导出名」（如 'Coffee'）。
+ * 展示时统一走 resolveCategoryIcon：先查 icon 存的 key，老数据 emoji 再按名字映射。
+ * 这样「存什么 icon 就显示什么」，不再出现选了 A 显示 B / 乱闪 Zap。
+ */
+
+/** Lucide 组件导出名 → 组件（可选项中实际提供的图标全集） */
+const LUCIDE_BY_KEY: Record<string, LucideIcon> = {
+  Utensils, Coffee, Cake, Beer, Pizza, Cookie, ShoppingBag, ShoppingCart,
+  Shirt, Footprints, Car, Bus, TrainFront, Plane, Bike, Fuel, CircleParking,
+  Home, Sofa, Lightbulb, Wrench, Sparkles, Gamepad2, Clapperboard,
+  Music, Ticket, MonitorPlay, Dumbbell, BookOpen, GraduationCap, PenLine,
+  HeartPulse, Stethoscope, Pill, PawPrint, Baby, Briefcase, Wallet,
+  TrendingUp, PiggyBank, Gift, Phone, Tv, Camera, Smartphone, Globe, Package,
+};
+
+/** 图标选择分组（供选择器 UI 使用） */
+export const ICON_CHOICES: { group: string; items: { key: string; label: string }[] }[] = [
+  { group: '餐饮', items: [{ key: 'Utensils', label: '餐具' }, { key: 'Coffee', label: '咖啡' }, { key: 'Cake', label: '蛋糕' }, { key: 'Beer', label: '饮品' }, { key: 'Pizza', label: '外卖' }, { key: 'Cookie', label: '零食' }] },
+  { group: '交通', items: [{ key: 'Car', label: '汽车' }, { key: 'Bus', label: '公交' }, { key: 'TrainFront', label: '火车' }, { key: 'Plane', label: '飞机' }, { key: 'Fuel', label: '加油' }, { key: 'Bike', label: '单车' }, { key: 'CircleParking', label: '停车' }] },
+  { group: '购物', items: [{ key: 'ShoppingBag', label: '购物袋' }, { key: 'ShoppingCart', label: '购物车' }, { key: 'Shirt', label: '服饰' }, { key: 'Footprints', label: '鞋' }] },
+  { group: '居家', items: [{ key: 'Home', label: '家' }, { key: 'Sofa', label: '沙发' }, { key: 'Lightbulb', label: '灯泡' }, { key: 'Wrench', label: '维修' }, { key: 'Sparkles', label: '清洁' }] },
+  { group: '娱乐', items: [{ key: 'Gamepad2', label: '游戏' }, { key: 'Clapperboard', label: '影视' }, { key: 'Music', label: '音乐' }, { key: 'Ticket', label: '票券' }, { key: 'Camera', label: '相机' }, { key: 'Tv', label: '电视' }] },
+  { group: '学习健康', items: [{ key: 'BookOpen', label: '书籍' }, { key: 'GraduationCap', label: '教育' }, { key: 'PenLine', label: '文具' }, { key: 'HeartPulse', label: '医疗' }, { key: 'Stethoscope', label: '药品' }, { key: 'Pill', label: '药丸' }, { key: 'Dumbbell', label: '健身' }, { key: 'PawPrint', label: '宠物' }, { key: 'Baby', label: '母婴' }] },
+  { group: '收入', items: [{ key: 'Briefcase', label: '工资' }, { key: 'Wallet', label: '兼职' }, { key: 'TrendingUp', label: '理财' }, { key: 'PiggyBank', label: '存钱罐' }, { key: 'Gift', label: '礼物' }, { key: 'Phone', label: '话费' }, { key: 'Globe', label: '网络' }, { key: 'Package', label: '其他' }] },
+];
+
+/** 是否为可用的 Lucide key（用于校验 icon 字段） */
+export function isLucideKey(v: string | null | undefined): boolean {
+  return !!v && !!LUCIDE_BY_KEY[v];
+}
+
+/** 按 Lucide key 取组件（图标选择器等用），不存在返回 null */
+export function getIconByKey(key: string): LucideIcon | null {
+  return LUCIDE_BY_KEY[key] ?? null;
+}
+
+/** 统一图标解析：icon 存的 Lucide key > 兼容英文名 > 老 emoji 按名字映射 > Zap */
+export function resolveCategoryIcon(cat: { icon?: string | null; name: string }): LucideIcon {
+  const key = cat.icon ?? '';
+  if (LUCIDE_BY_KEY[key]) return LUCIDE_BY_KEY[key];
+  if (/^[a-zA-Z]+$/.test(key)) return LUCIDE_BY_KEY[key] ?? Zap; // 兼容旧代码存过英文 key
+  return getCategoryIcon(cat.name) ?? Zap;
 }

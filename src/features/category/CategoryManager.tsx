@@ -1,15 +1,18 @@
 /**
- * 分类管理组件 — 列表 + 新增/编辑表单
+ * 分类管理组件 — 根分类 + 二级分类展示，新增/编辑表单（Lucide 图标网格）
  */
 import { useState, useEffect } from 'react';
-import { Zap } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useCategoryStore } from '@/features/category/store';
 import { getAppContext } from '@/data/init';
-import { getCategoryIcon, getCategoryColor } from '@/shared/components/CategoryIcons';
+import {
+  getCategoryColor, resolveCategoryIcon, ICON_CHOICES,
+  getIconByKey, isLucideKey,
+} from '@/shared/components/CategoryIcons';
 import { useToast } from '@/shared/hooks/useToast';
 import type { Category, CategoryType } from '@/domain/entities/Category';
+import type { UUID } from '@/core/types';
 
-const EMOJI_PRESETS = ['🍜', '☕', '🛒', '🚗', '🎬', '🏠', '👔', '💊', '📱', '🎁', '✈️', '📚', '🐱', '💪', '🎮', '💼'];
 const COLOR_PRESETS = ['#E07B6C', '#FF9F43', '#FECA57', '#5FBB97', '#54A0FF', '#5F27CD', '#FF6FB5', '#00D2D3'];
 
 export default function CategoryManager() {
@@ -17,20 +20,23 @@ export default function CategoryManager() {
   const [showForm, setShowForm] = useState(false);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [defaultType, setDefaultType] = useState<CategoryType>('expense');
+  const [defaultParent, setDefaultParent] = useState<UUID | null>(null);
 
   useEffect(() => { loadCategories(); }, []);
 
-  const expenseCats = categories.filter((c) => c.type === 'expense' && !c.parentId);
-  const incomeCats = categories.filter((c) => c.type === 'income' && !c.parentId);
+  const rootsOf = (type: CategoryType) => categories.filter((c) => c.type === type && !c.parentId);
 
-  function handleAdd(type: CategoryType) {
+  function handleAdd(type: CategoryType, parentId: UUID | null = null) {
     setEditingCat(null);
     setDefaultType(type);
+    setDefaultParent(parentId);
     setShowForm(true);
   }
 
   function handleEdit(cat: Category) {
     setEditingCat(cat);
+    setDefaultType(cat.type);
+    setDefaultParent(cat.parentId);
     setShowForm(true);
   }
 
@@ -40,36 +46,32 @@ export default function CategoryManager() {
         <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>分类管理</h3>
       </div>
 
-      {/* 支出分类 */}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-expense)' }}>💸 支出分类</span>
-          <button className="btn-pill" onClick={() => handleAdd('expense')}>+ 添加</button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
-          {expenseCats.map((c) => (
-            <CatChip key={c.id} cat={c} onClick={() => handleEdit(c)} />
-          ))}
-        </div>
-      </div>
-
-      {/* 收入分类 */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-income)' }}>💰 收入分类</span>
-          <button className="btn-pill" onClick={() => handleAdd('income')}>+ 添加</button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
-          {incomeCats.map((c) => (
-            <CatChip key={c.id} cat={c} onClick={() => handleEdit(c)} />
-          ))}
-        </div>
-      </div>
+      <CatGroup
+        title="支出分类"
+        icon="💸"
+        color="var(--color-expense)"
+        roots={rootsOf('expense')}
+        categories={categories}
+        onAddRoot={() => handleAdd('expense')}
+        onAddChild={(pid) => handleAdd('expense', pid)}
+        onEdit={handleEdit}
+      />
+      <CatGroup
+        title="收入分类"
+        icon="💰"
+        color="var(--color-income)"
+        roots={rootsOf('income')}
+        categories={categories}
+        onAddRoot={() => handleAdd('income')}
+        onAddChild={(pid) => handleAdd('income', pid)}
+        onEdit={handleEdit}
+      />
 
       {showForm && (
         <CategoryForm
           category={editingCat}
           defaultType={defaultType}
+          defaultParent={defaultParent}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); loadCategories(); }}
         />
@@ -78,49 +80,127 @@ export default function CategoryManager() {
   );
 }
 
+/** 分类组：根分类网格 + 各根分类下的二级分类（可点击编辑） */
+function CatGroup({ title, icon, color, roots, categories, onAddRoot, onAddChild, onEdit }: {
+  title: string; icon: string; color: string;
+  roots: Category[]; categories: Category[];
+  onAddRoot: () => void; onAddChild: (parentId: UUID) => void;
+  onEdit: (cat: Category) => void;
+}) {
+  const childrenOf = (pid: UUID) => categories.filter((c) => c.parentId === pid);
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color }}>{icon} {title}</span>
+        <button className="btn-pill" onClick={onAddRoot}>+ 添加</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+        {roots.map((c) => <CatChip key={c.id} cat={c} onClick={() => onEdit(c)} />)}
+      </div>
+
+      {/* 二级分类 */}
+      {roots.map((root) => {
+        const kids = childrenOf(root.id);
+        if (kids.length === 0) return null;
+        return (
+          <div key={root.id} style={{ margin: '8px 0 2px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4, paddingLeft: 2,
+            }}>
+              <span style={{ fontWeight: 500 }}>· {root.name} 的子分类</span>
+              <button
+                onClick={() => onAddChild(root.id)}
+                style={{
+                  border: 'none', background: 'transparent', cursor: 'pointer',
+                  color: 'var(--color-primary)', fontSize: 11, padding: 0, fontFamily: 'inherit',
+                }}
+              >
+                + 添加
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {kids.map((k) => (
+                <button key={k.id} onClick={() => onEdit(k)} style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  border: '1px solid var(--color-border)', borderRadius: 8,
+                  background: 'var(--color-card)', cursor: 'pointer', fontFamily: 'inherit',
+                  padding: '3px 8px', fontSize: 11, color: 'var(--color-text-primary)',
+                }}>
+                  {catIconEl(k, 13)}
+                  <span>{k.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CatChip({ cat, onClick }: { cat: Category; onClick: () => void }) {
-  const IconComp = getCategoryIcon(cat.name) ?? Zap;
   const color = cat.color || getCategoryColor(cat.name);
   return (
     <button onClick={onClick} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
       padding: '8px 2px', border: 'none', borderRadius: 10, background: 'var(--color-bg-secondary)',
-      cursor: 'pointer', fontFamily: 'inherit', transition: 'background 150ms',
+      cursor: 'pointer', fontFamily: 'inherit',
     }}>
       <div style={{
         width: 32, height: 32, borderRadius: 8,
         background: 'var(--color-card)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <IconComp size={16} strokeWidth={1.8} color={color} />
+        {catIconEl(cat, 16)}
       </div>
-      <span style={{ fontSize: 10, color: color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.name}</span>
+      <span style={{ fontSize: 10, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{cat.name}</span>
     </button>
   );
 }
 
-function CategoryForm({ category, defaultType, onClose, onSaved }: {
+function catIconEl(cat: Category, size: number) {
+  const I = resolveCategoryIcon(cat);
+  return <I size={size} strokeWidth={1.8} color={cat.color || getCategoryColor(cat.name)} />;
+}
+
+function CategoryForm({ category, defaultType, defaultParent, onClose, onSaved }: {
   category: Category | null;
   defaultType: CategoryType;
+  defaultParent: UUID | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const categories = useCategoryStore((s) => s.categories);
   const [name, setName] = useState(category?.name ?? '');
   const [type, setType] = useState<CategoryType>(category?.type ?? defaultType);
-  const [icon, setIcon] = useState(category?.icon ?? '📦');
+  // icon 存 Lucide key（旧数据 emoji 不再是 key → 置空走名字映射，保存后统一为 key）
+  const [iconKey, setIconKey] = useState<string | null>(
+    category && isLucideKey(category.icon) ? category.icon : null,
+  );
   const [color, setColor] = useState(category?.color ?? '#E07B6C');
+  const [parentId, setParentId] = useState<UUID | null>(
+    category ? category.parentId : defaultParent ?? null,
+  );
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const parentRoots = categories.filter((c) => !c.parentId && c.type === type);
+  const PreviewIcon = iconKey
+    ? getIconByKey(iconKey)
+    : resolveCategoryIcon({ icon: null, name: name.trim() || (category?.name ?? '') });
 
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
     const { categoryRepo } = getAppContext();
     try {
+      const data = { name: name.trim(), icon: iconKey, color, parentId };
       if (category) {
-        await categoryRepo.update(category.id, { name: name.trim(), icon, color, parentId: category.parentId ?? undefined });
+        await categoryRepo.update(category.id, data);
       } else {
-        await categoryRepo.create({ ledgerId: '', name: name.trim(), type, icon, color });
+        await categoryRepo.create({ ledgerId: '', type, ...data });
       }
       setSaving(false);
       onSaved();
@@ -154,7 +234,7 @@ function CategoryForm({ category, defaultType, onClose, onSaved }: {
       <div style={{
         width: '100%', maxWidth: 500, background: 'var(--color-card)',
         borderRadius: '20px 20px 0 0', padding: '20px 16px',
-        maxHeight: '80vh', overflow: 'auto',
+        maxHeight: '86vh', overflow: 'auto',
       }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: 17, color: 'var(--color-text-primary)', margin: 0 }}>
@@ -163,23 +243,30 @@ function CategoryForm({ category, defaultType, onClose, onSaved }: {
           <button onClick={onClose} style={{ border: 'none', background: 'var(--color-bg-secondary)', borderRadius: 20, width: 28, height: 28, fontSize: 14, cursor: 'pointer' }}>✕</button>
         </div>
 
-        {/* 类型 (仅新建时) */}
+        {/* 类型 (仅新建) */}
         {!category && (
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>类型</label>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => setType('expense')} style={{
-                padding: '8px 16px', border: type === 'expense' ? '2px solid var(--color-expense)' : '1px solid var(--color-border)',
-                borderRadius: 10, background: type === 'expense' ? '#FFF5F5' : 'var(--color-card)',
-                cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                color: type === 'expense' ? 'var(--color-expense)' : 'var(--color-text-secondary)',
-              }}>💸 支出</button>
-              <button onClick={() => setType('income')} style={{
-                padding: '8px 16px', border: type === 'income' ? '2px solid var(--color-income)' : '1px solid var(--color-border)',
-                borderRadius: 10, background: type === 'income' ? '#F0FFF5' : 'var(--color-card)',
-                cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                color: type === 'income' ? 'var(--color-income)' : 'var(--color-text-secondary)',
-              }}>💰 收入</button>
+              {([['expense', '支出'], ['income', '收入']] as const).map(([v]) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    setType(v);
+                    if (!category) setParentId(null);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    border: type === v ? `2px solid ${v === 'expense' ? 'var(--color-expense)' : 'var(--color-income)'}` : '1px solid var(--color-border)',
+                    borderRadius: 10,
+                    background: type === v ? (v === 'expense' ? '#FFF5F5' : '#F0FFF5') : 'var(--color-card)',
+                    cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
+                    color: type === v ? (v === 'expense' ? 'var(--color-expense)' : 'var(--color-income)') : 'var(--color-text-secondary)',
+                  }}
+                >
+                  {v === 'expense' ? '💸 支出' : '💰 收入'}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -187,24 +274,88 @@ function CategoryForm({ category, defaultType, onClose, onSaved }: {
         {/* 名称 */}
         <div style={{ marginBottom: 12 }}>
           <label style={labelStyle}>分类名称</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="如：交通、购物" style={fieldStyle} />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="如：夜宵、房租" style={fieldStyle} />
         </div>
 
-        {/* 图标 */}
+        {/* 归属分类（父分类） */}
         <div style={{ marginBottom: 12 }}>
-          <label style={labelStyle}>图标</label>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {EMOJI_PRESETS.map((em) => (
-              <button key={em} onClick={() => setIcon(em)} style={{
-                width: 36, height: 36, border: icon === em ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                borderRadius: 8, background: icon === em ? 'var(--color-primary-light)' : 'var(--color-card)',
-                fontSize: 18, cursor: 'pointer', padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {em}
-              </button>
+          <label style={labelStyle}>归属分类（选根分类 = 添加为二级分类）</label>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={parentId ?? ''}
+              onChange={(e) => setParentId(e.target.value || null)}
+              style={{ ...fieldStyle, appearance: 'none', cursor: 'pointer' }}
+            >
+              <option value="">一级分类</option>
+              {parentRoots.filter((r) => r.id !== category?.id).map((r) => (
+                <option key={r.id} value={r.id}>↳ {r.name}（二级）</option>
+              ))}
+            </select>
+            <ChevronDown size={14} color="var(--color-text-tertiary)" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          </div>
+        </div>
+
+        {/* 图标：Lucide 网格 */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ ...labelStyle, marginBottom: 6 }}>图标</label>
+            <button
+              onClick={() => setIconKey(null)}
+              style={{
+                border: '1px dashed var(--color-border)', background: 'transparent',
+                color: 'var(--color-text-secondary)', fontSize: 11, borderRadius: 6,
+                padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              默认（按分类名）
+            </button>
+          </div>
+          {/* 当前选中预览 */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+            background: 'var(--color-bg-secondary)', borderRadius: 10, padding: '8px 10px',
+          }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10, background: `${color}22`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {PreviewIcon ? <PreviewIcon size={22} strokeWidth={1.8} color={color} /> : null}
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+              {iconKey ? `选中：${iconKey}` : '不指定图标（显示跟随分类名）'}
+            </span>
+          </div>
+
+          <div style={{ maxHeight: 200, overflowY: 'auto', paddingRight: 4 }}>
+            {ICON_CHOICES.map((g) => (
+              <div key={g.group} style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginBottom: 4, fontWeight: 500 }}>{g.group}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {g.items.map((it) => {
+                    const active = iconKey === it.key;
+                    return (
+                      <button
+                        key={it.key}
+                        onClick={() => setIconKey(it.key)}
+                        title={it.label}
+                        style={{
+                          width: 34, height: 34, borderRadius: 9, cursor: 'pointer',
+                          border: 'none',
+                          background: active ? 'var(--color-primary-light)' : 'var(--color-bg-secondary)',
+                          boxShadow: active ? `inset 0 0 0 1.5px var(--color-primary)` : 'none',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        {(() => {
+                          const I = getIconByKey(it.key);
+                          return I ? <I size={18} strokeWidth={1.8} color={active ? 'var(--color-primary)' : 'var(--color-text-secondary)'} /> : null;
+                        })()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
-            <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="自定义" style={{ width: 50, border: '1px solid var(--color-border)', borderRadius: 8, textAlign: 'center', fontSize: 14, outline: 'none' }} />
           </div>
         </div>
 

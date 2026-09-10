@@ -255,8 +255,13 @@ function AccountForm({ account, onClose, onSaved }: {
     setSaving(true);
     try {
       const { accountRepo } = services;
-      await accountRepo.delete(account.id);
+      const removedId = account.id;
+      await accountRepo.delete(removedId);
       setSaving(false);
+      useToast.getState().undo('已删除账户', async () => {
+        await services.accountRepo.restore(removedId);
+        useAccountStore.getState().loadAccounts();
+      });
       onSaved();
     } catch {
       setSaving(false);

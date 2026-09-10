@@ -259,8 +259,13 @@ function CategoryForm({ category, defaultType, defaultParent, onClose, onSaved }
     setSaving(true);
     try {
       const { categoryRepo } = services;
-      await categoryRepo.delete(category.id);
+      const removedId = category.id;
+      await categoryRepo.delete(removedId);
       setSaving(false);
+      useToast.getState().undo('已删除分类', async () => {
+        await services.categoryRepo.restore(removedId);
+        useCategoryStore.getState().loadCategories();
+      });
       onSaved();
     } catch {
       setSaving(false);

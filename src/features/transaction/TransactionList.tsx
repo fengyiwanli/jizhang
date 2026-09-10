@@ -6,7 +6,7 @@ import { services } from '@/data/services';
 import { useTransactionStore } from '@/features/transaction/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
-import { formatTransaction } from '@/data/repositories/TransactionRepository';
+import { formatTransaction } from '@/core/format/transaction';
 import { getCategoryColor, resolveCategoryIcon, tintColor } from '@/shared/components/CategoryIcons';
 import { useToast } from '@/shared/hooks/useToast';
 import TransactionEditSheet from '@/shared/components/TransactionEditSheet';

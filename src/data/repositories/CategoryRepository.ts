@@ -122,7 +122,9 @@ export class CategoryRepository {
       [now, now, id],
     );
     persistDatabase();
-  }  async clearAll(): Promise<void> {
+  }
+
+  async clearAll(): Promise<void> {
     await this.db.execute('DELETE FROM categories');
   }
 }

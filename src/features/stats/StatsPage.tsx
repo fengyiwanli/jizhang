@@ -21,14 +21,14 @@ import useRowLongPress from '@/shared/hooks/useRowLongPress';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 import type { Transaction } from '@/domain/entities/Transaction';
 import { getCategoryColor, tintColor, resolveCategoryIcon } from '@/shared/components/CategoryIcons';
-import type { StatsRepository, MonthlySummary, CategoryStat, DailyTrend } from '@/data/repositories/StatsRepository';
+import type { MonthlySummary, CategoryStat, DailyTrend } from '@/domain/entities/Stats';
 import { MoneyUtils } from '@/core/types';
 import { todayLocal } from '@/core/datetime';
 
 type ViewMode = 'day' | 'week' | 'month' | 'year' | 'custom';
 
 /** getDailyTransactions 返回的完整行数组 */
-type DayTxList = Awaited<ReturnType<StatsRepository['getDailyTransactions']>>;
+type DayTxList = Awaited<ReturnType<typeof services.stats.getDailyTransactions>>;
 
 /* ECharts 是 canvas 渲染，不支持 CSS 变量；这里统一取 global.css token 的落地 hex（唯一来源） */
 const CHART_EXPENSE = '#E07B6C'; // = var(--color-expense)

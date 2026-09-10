@@ -9,7 +9,8 @@ import { createTransactionRepository } from './repositories/TransactionRepositor
 import { CategoryRepository } from './repositories/CategoryRepository';
 import { AccountRepository } from './repositories/AccountRepository';
 import { StatsRepository } from './repositories/StatsRepository';
-import { RecurringRepository, advanceNextRun } from './repositories/RecurringRepository';
+import { RecurringRepository } from './repositories/RecurringRepository';
+import { advanceNextRun } from '@/domain/recurring';
 import { BudgetRepository } from './repositories/BudgetRepository';
 import { SettingsRepository } from './repositories/SettingsRepository';
 import type { TransactionRepository } from './repositories/TransactionRepository';

@@ -1,12 +1,15 @@
 /**
  * Zustand Store - 交易状态管理
  *
- * 管理交易列表和当前编辑状态
+ * 数据访问统一走 services（N-1）：
+ * - 写操作由 services 自动 emit 'transactions'
+ * - store 自身订阅一次该 topic，任何来源的交易变更都会刷新列表（带 200ms 去抖）
  */
 import { create } from 'zustand';
 import type { Transaction, CreateTransactionInput, UpdateTransactionInput } from '@/domain/entities/Transaction';
 import type { UUID } from '@/core/types';
-import { getTransactionRepository } from '@/data/repositories/TransactionRepository';
+import { services } from '@/data/services';
+import { dataEvents } from '@/data/dataEvents';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 
 interface TransactionState {
@@ -37,8 +40,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   loadTransactions: async (limit = 50) => {
     set({ loading: true, error: null });
     try {
-      const repo = getTransactionRepository();
-      const transactions = await repo.list({
+      const transactions = await services.transactionRepo.list({
         ledgerId: DEFAULT_LEDGER_ID,
         limit,
       });
@@ -49,8 +51,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   },
 
   createTransaction: async (input) => {
-    const repo = getTransactionRepository();
-    const tx = await repo.create({
+    const tx = await services.transactionRepo.create({
       ...input,
       ledgerId: DEFAULT_LEDGER_ID,
     });
@@ -61,16 +62,14 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   },
 
   updateTransaction: async (id, input) => {
-    const repo = getTransactionRepository();
-    const updated = await repo.update(id, input);
+    const updated = await services.transactionRepo.update(id, input);
     set((state) => ({
       transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
     }));
   },
 
   deleteTransaction: async (id) => {
-    const repo = getTransactionRepository();
-    await repo.delete(id);
+    await services.transactionRepo.delete(id);
     set((state) => ({
       transactions: state.transactions.filter((t) => t.id !== id),
     }));
@@ -80,3 +79,13 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     return get().transactions.find((t) => t.id === id);
   },
 }));
+
+// 模块级订阅：任何来源(任何页面/服务)的交易写入都刷新 store 列表（去抖，避免写后重复查询）
+let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+dataEvents.subscribe('transactions', () => {
+  if (reloadTimer) clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(() => {
+    reloadTimer = null;
+    void useTransactionStore.getState().loadTransactions(10000);
+  }, 200);
+});

@@ -8,8 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx --max-warnings 30",
-    "test": "node --experimental-strip-types --test src/core/__tests__/money.test.ts src/core/__tests__/datetime.test.ts",
-    "test:watch": "node --experimental-strip-types --test --watch src/core/__tests__/money.test.ts src/core/__tests__/datetime.test.ts"
+    "test": "node --experimental-strip-types --test src/core/__tests__/money.test.ts src/core/__tests__/datetime.test.ts src/core/__tests__/contract.test.ts src/core/__tests__/recurring.test.ts",
+    "test:watch": "node --experimental-strip-types --test --watch src/core/__tests__/money.test.ts src/core/__tests__/datetime.test.ts",
+    "test:db": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",

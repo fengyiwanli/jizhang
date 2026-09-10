@@ -5,66 +5,14 @@
  */
 import type { DatabaseAdapter } from '../database/DatabaseAdapter';
 import { persistDatabase } from '../database/context';
-import type { UUID, TransactionType } from '@/core/types';
+import type { UUID } from '@/core/types';
 import { generateUUID } from '@/core/uuid';
 import { nowUTC } from '@/core/datetime';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
+import type { Frequency, RecurringRule, CreateRecurringInput } from '@/domain/entities/Recurring';
 
-export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
-
-export interface RecurringRule {
-  id: UUID;
-  ledgerId: UUID;
-  type: TransactionType;
-  /** 金额（分） */
-  amount: number;
-  accountId: UUID;
-  categoryId: UUID | null;
-  note: string;
-  frequency: Frequency;
-  /** 每 N 个周期执行一次 */
-  interval: number;
-  /** 下次执行日期 (YYYY-MM-DD) */
-  nextRun: string;
-  startDate: string;
-  isActive: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateRecurringInput {
-  type: TransactionType;
-  amountInYuan: number;
-  accountId: UUID;
-  categoryId?: UUID | null;
-  note?: string;
-  frequency: Frequency;
-  interval?: number;
-  nextRun: string;
-}
-
-const FREQUENCY_LABELS: Record<Frequency, string> = {
-  daily: '每天',
-  weekly: '每周',
-  monthly: '每月',
-  yearly: '每年',
-};
-
-export function frequencyLabel(f: Frequency): string {
-  return FREQUENCY_LABELS[f] ?? f;
-}
-
-/** 推进下一个执行日期 */
-export function advanceNextRun(current: string, frequency: Frequency, interval: number): string {
-  const d = new Date(current + 'T00:00:00');
-  switch (frequency) {
-    case 'daily': d.setDate(d.getDate() + interval); break;
-    case 'weekly': d.setDate(d.getDate() + 7 * interval); break;
-    case 'monthly': d.setMonth(d.getMonth() + interval); break;
-    case 'yearly': d.setFullYear(d.getFullYear() + interval); break;
-  }
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+export type { Frequency, RecurringRule, CreateRecurringInput };
+export { frequencyLabel, advanceNextRun } from '@/domain/recurring';
 
 export class RecurringRepository {
   constructor(private db: DatabaseAdapter) {}

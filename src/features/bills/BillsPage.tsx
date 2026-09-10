@@ -12,7 +12,7 @@ import { useTransactionStore } from '@/features/transaction/store';
 import { useToast } from '@/shared/hooks/useToast';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
-import { formatTransaction } from '@/data/repositories/TransactionRepository';
+import { formatTransaction } from '@/core/format/transaction';
 import { getCategoryColor, tintColor, resolveCategoryIcon } from '@/shared/components/CategoryIcons';
 import { MoneyUtils } from '@/core/types';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
@@ -179,21 +179,40 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
         </button>
       </div>
 
-      {/* 搜索历史 */}
+      {/* 搜索历史（支持单条删除 / 清空，B-5） */}
       {searchHistory.length > 0 && !keyword && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 10 }}>
           {searchHistory.map((h) => (
             <span
               key={h}
-              onClick={() => setKeyword(h)}
               style={{
                 fontSize: 12, color: 'var(--color-text-tertiary)', background: 'var(--color-bg-secondary)',
-                padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
+                padding: '4px 6px 4px 10px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 4,
               }}
             >
-              {h}
+              <span onClick={() => setKeyword(h)} style={{ cursor: 'pointer' }}>{h}</span>
+              <span
+                role="button"
+                aria-label={`删除历史 ${h}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const next = searchHistory.filter((x) => x !== h);
+                  setSearchHistory(next);
+                  localStorage.setItem('bk_search_history', JSON.stringify(next));
+                }}
+                style={{ cursor: 'pointer', fontSize: 13, lineHeight: 1, color: 'var(--color-text-quaternary, #C7C7CC)', padding: '0 2px' }}
+              >
+                ×
+              </span>
             </span>
           ))}
+          <span
+            role="button"
+            onClick={() => { setSearchHistory([]); localStorage.removeItem('bk_search_history'); }}
+            style={{ fontSize: 11, color: 'var(--color-text-tertiary)', cursor: 'pointer', padding: '2px 4px', textDecoration: 'underline' }}
+          >
+            清空
+          </span>
         </div>
       )}
 

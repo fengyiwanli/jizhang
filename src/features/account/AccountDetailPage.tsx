@@ -13,7 +13,7 @@ import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
 import useRowLongPress from '@/shared/hooks/useRowLongPress';
 import { useToast } from '@/shared/hooks/useToast';
 import type { Transaction } from '@/domain/entities/Transaction';
-import { formatTransaction } from '@/data/repositories/TransactionRepository';
+import { formatTransaction } from '@/core/format/transaction';
 import { getCategoryColor, resolveCategoryIcon, tintColor } from '@/shared/components/CategoryIcons';
 import { todayLocal } from '@/core/datetime';
 

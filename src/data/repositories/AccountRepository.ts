@@ -121,7 +121,9 @@ export class AccountRepository {
       [now, id],
     );
     persistDatabase();
-  }  async clearAll(): Promise<void> {
+  }
+
+  async clearAll(): Promise<void> {
     await this.db.execute('DELETE FROM accounts');
   }
 

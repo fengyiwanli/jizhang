@@ -21,7 +21,6 @@ import type { UUID } from '@/core/types';
 import { generateUUID, generateClientId } from '@/core/uuid';
 import { nowUTC, todayUTC, nowTimeUTC } from '@/core/datetime';
 import { persistDatabase } from '../database/context';
-import { MoneyUtils } from '@/core/types';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 
 export class TransactionRepository implements ITransactionRepository {
@@ -283,28 +282,4 @@ export function getTransactionRepository(): TransactionRepository {
   return repoInstance;
 }
 
-/** 格式化 Transaction 用于显示 */
-export function formatTransaction(tx: Transaction): {
-  amountDisplay: string;
-  typeLabel: string;
-  dateDisplay: string;
-  tagsList: string[];
-} {
-  let parsedTags: string[] = [];
-  try {
-    parsedTags = JSON.parse(tx.tags);
-  } catch { /* ignore */ }
 
-  const typeLabels: Record<string, string> = {
-    income: '收入',
-    expense: '支出',
-    transfer: '转账',
-  };
-
-  return {
-    amountDisplay: MoneyUtils.format(tx.amount),
-    typeLabel: typeLabels[tx.type] ?? tx.type,
-    dateDisplay: tx.date,
-    tagsList: parsedTags,
-  };
-}

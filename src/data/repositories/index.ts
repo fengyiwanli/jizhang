@@ -2,8 +2,10 @@ export {
   TransactionRepository,
   createTransactionRepository,
   getTransactionRepository,
-  formatTransaction,
 } from './TransactionRepository';
+
+export { formatTransaction } from '@/core/format/transaction';
+export type { TransactionDisplay } from '@/core/format/transaction';
 
 export { CategoryRepository } from './CategoryRepository';
 export { AccountRepository } from './AccountRepository';

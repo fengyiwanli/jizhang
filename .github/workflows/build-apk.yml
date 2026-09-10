@@ -26,6 +26,9 @@ jobs:
       - name: 单元测试
         run: npm run test
 
+      - name: 数据库层测试 (vitest, N-4)
+        run: npx --yes vitest@latest run --config vitest.config.ts
+
   build:
     needs: quality
     runs-on: ubuntu-latest

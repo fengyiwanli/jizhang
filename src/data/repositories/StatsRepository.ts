@@ -6,32 +6,9 @@
 import type { DatabaseAdapter } from '../database/DatabaseAdapter';
 import type { UUID, TransactionType } from '@/core/types';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
+import type { MonthlySummary, CategoryStat, DailyTrend } from '@/domain/entities/Stats';
 
-/** 月度收支汇总 */
-export interface MonthlySummary {
-  totalExpense: number;
-  totalIncome: number;
-  transactionCount: number;
-}
-
-/** 分类统计 */
-export interface CategoryStat {
-  categoryId: UUID;
-  categoryName: string;
-  categoryIcon: string;
-  categoryColor: string;
-  amount: number;
-  percentage: number;
-  count: number;
-}
-
-/** 每日趋势 */
-export interface DailyTrend {
-  date: string;
-  expense: number;
-  income: number;
-  count: number;
-}
+export type { MonthlySummary, CategoryStat, DailyTrend };
 
 export class StatsRepository {
   constructor(private db: DatabaseAdapter) {}

@@ -27,9 +27,26 @@ export default [
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // N-2 结构约束：UI 层不得直接访问仓库 / AppContext，只能走 @/data/services
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@/data/repositories', '@/data/repositories/*'],
+          message: 'UI 层请通过 @/data/services 访问数据（N-2 架构约束）',
+        }],
+        paths: [{
+          name: '@/data/init',
+          importNames: ['getAppContext'],
+          message: 'UI 层请通过 @/data/services 访问数据（N-2 架构约束）',
+        }],
+      }],
     },
     settings: {
       react: { version: 'detect' },
     },
+  },
+  {
+    // data 层内部允许直接使用仓库与 AppContext
+    files: ['src/data/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-imports': 'off' },
   },
 ];

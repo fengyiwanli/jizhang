@@ -52,6 +52,35 @@ export default function App() {
   const [initError, setInitError] = useState<string | null>(null);
   const stackRef = useRef(1);
   useEffect(() => { stackRef.current = stack.length; }, [stack]);
+  // 跨天 / 后台恢复：日期变化时递增，强制重挂载当前 Tab（否则首页仍停留在昨天）
+  const [dayVersion, setDayVersion] = useState(0);
+  useEffect(() => {
+    let current = todayLocal();
+    const check = () => {
+      const t = todayLocal();
+      if (t !== current) {
+        const monthChanged = t.slice(0, 7) !== current.slice(0, 7);
+        current = t;
+        setDayVersion((v) => v + 1);
+        if (monthChanged) {
+          getAppContext().budgetRepo.getTotalBudget(t.slice(0, 7))
+            .then((a) => setBudgetInYuan(a !== null ? a / 100 : null));
+        }
+      }
+    };
+    const onVis = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVis);
+    const timer = window.setInterval(check, 60_000);
+    let listener: Promise<{ remove: () => Promise<void> }> | undefined;
+    if (Capacitor.isNativePlatform()) {
+      listener = CapApp.addListener('appStateChange', (s) => { if (s.isActive) check(); });
+    }
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.clearInterval(timer);
+      listener?.then((h) => h.remove()).catch(() => {});
+    };
+  }, []);
 
   const [budgetInYuan, setBudgetInYuan] = useState<number | null>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
@@ -217,7 +246,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ToastContainer />
-      <TabBar tabs={tabs} activeTab={tab} onTabChange={switchTab} />
+      <TabBar key={dayVersion} tabs={tabs} activeTab={tab} onTabChange={switchTab} />
     </ErrorBoundary>
   );
 }

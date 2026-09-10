@@ -35,6 +35,16 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const [tagInput, setTagInput] = useState('');
   const [pickerTarget, setPickerTarget] = useState<'from' | 'to' | 'main' | null>(null);
   const [balances, setBalances] = useState<Record<string, number>>({});
+  /** 用户是否手动选过账户（选过后不再被默认账户覆盖） */
+  const accTouched = useRef(false);
+
+  // 默认账户是异步从设置里读出来的：到达后同步到表单（修复"默认账户不生效"）
+  useEffect(() => {
+    if (accTouched.current) return;
+    if (defAccountId && accounts.some((a) => a.id === defAccountId)) {
+      setAccountId((prev) => (prev === defAccountId ? prev : defAccountId));
+    }
+  }, [defAccountId, accounts]);
 
   // 账户余额走 SQL 聚合
   useEffect(() => {
@@ -42,6 +52,19 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
     Promise.all(accounts.map(async (a) => [a.id, await accountRepo.getBalance(a.id)] as const))
       .then((entries) => setBalances(Object.fromEntries(entries)));
   }, [accounts, transactions]);
+
+  // 跨天（后台放置到第二天再回来）：未手动改过日期时，自动跟到今天
+  const dateTouched = useRef(false);
+  useEffect(() => {
+    const syncDate = () => { if (!dateTouched.current) setDateStr(todayLocal()); };
+    const onVis = () => { if (document.visibilityState === 'visible') syncDate(); };
+    document.addEventListener('visibilitychange', onVis);
+    const timer = window.setInterval(syncDate, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const amountRef = useRef<HTMLInputElement>(null);
   const amountYuan = parseFloat(amountStr) || 0;
@@ -92,6 +115,9 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
       setTags([]);
       setTagInput('');
       if (type === 'transfer') setToAccountId('');
+      // 记完一笔回到默认账户
+      accTouched.current = false;
+      if (defAccountId && accounts.some((a) => a.id === defAccountId)) setAccountId(defAccountId);
     } catch {
       useToast.getState().error('保存失败，请重试');
     }
@@ -132,7 +158,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
           <input
             type="date"
             value={dateStr}
-            onChange={(e) => e.target.value && setDateStr(e.target.value)}
+            onChange={(e) => { if (e.target.value) { dateTouched.current = true; setDateStr(e.target.value); } }}
             style={{
               position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer',
               width: '100%', height: '100%',
@@ -364,7 +390,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
             : (accountId || accounts[0]?.id)}
           onSelect={(id) => {
             if (pickerTarget === 'to') setToAccountId(id);
-            else setAccountId(id);
+            else { accTouched.current = true; setAccountId(id); }
             setPickerTarget(null);
           }}
           onClose={() => setPickerTarget(null)}

@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
 import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
+import { resolveCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
 import { getAppContext } from '@/data/init';
 import { todayLocal } from '@/core/datetime';
 import DataBackup from './DataBackup';
@@ -31,6 +32,7 @@ export default function SettingsView({
   const [showClear, setShowClear] = useState(false);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
+  const [catBudgetOpen, setCatBudgetOpen] = useState(false); // 分类预算抽屉，默认收起
 
   const expenseRoots = categories.filter((c) => c.type === 'expense' && !c.parentId);
   const ym = todayLocal().slice(0, 7);
@@ -96,26 +98,60 @@ export default function SettingsView({
           </div>
         </Section>
 
-        {/* 分类预算 */}
+        {/* 分类预算 — 抽屉，默认收起 */}
         <Section>
-          <div style={titleStyle}>分类预算</div>
-          <div style={{ ...descStyle, marginBottom: 4 }}>为支出分类单独设预算额度（留空则不限）</div>
-          {expenseRoots.map((c) => (
-            <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-              <span style={{ fontSize: 13, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>{c.icon ?? '📦'}</span> {c.name}
+          <button
+            onClick={() => setCatBudgetOpen(!catBudgetOpen)}
+            className="row-press"
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              border: 'none', background: 'transparent', cursor: 'pointer',
+              fontFamily: 'inherit', padding: 0,
+            }}
+          >
+            <span style={{ textAlign: 'left' }}>
+              <span style={{ ...titleStyle, display: 'block' }}>分类预算</span>
+              <span style={descStyle}>
+                已设 {Object.values(catBudgets).filter((v) => v && v.trim() !== '').length} 项 · 点击展开
               </span>
-              <input
-                type="number"
-                value={catBudgets[c.id] ?? ''}
-                onChange={(e) => saveCategoryBudget(c.id, e.target.value)}
-                placeholder="不限"
-                style={{ ...amountInputStyle, width: 80 }}
-              />
+            </span>
+            <ChevronDown
+              size={16}
+              color="var(--color-text-tertiary)"
+              style={{ flexShrink: 0, transition: 'transform 200ms ease', transform: catBudgetOpen ? 'rotate(180deg)' : 'none' }}
+            />
+          </button>
+          {catBudgetOpen && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ ...descStyle, marginBottom: 4 }}>为支出分类单独设预算额度（留空则不限）</div>
+              {expenseRoots.map((c) => {
+                const IconComp = resolveCategoryIcon(c);
+                const color = c.color || getCategoryColor(c.name);
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                    <span style={{ fontSize: 13, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        width: 24, height: 24, borderRadius: 7, background: tintColor(color),
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <IconComp size={13} strokeWidth={1.8} color={color} />
+                      </span>
+                      {c.name}
+                    </span>
+                    <input
+                      type="number"
+                      value={catBudgets[c.id] ?? ''}
+                      onChange={(e) => saveCategoryBudget(c.id, e.target.value)}
+                      placeholder="不限"
+                      style={{ ...amountInputStyle, width: 80 }}
+                    />
+                  </div>
+                );
+              })}
+              {expenseRoots.length === 0 && (
+                <div style={{ fontSize: 12, color: '#C7C7CC', padding: '8px 0' }}>暂无支出分类</div>
+              )}
             </div>
-          ))}
-          {expenseRoots.length === 0 && (
-            <div style={{ fontSize: 12, color: '#C7C7CC', padding: '8px 0' }}>暂无支出分类</div>
           )}
         </Section>
 

@@ -11,6 +11,7 @@ import * as echarts from 'echarts';
 import { BarChart3, ArrowLeft, ArrowLeftRight, Calendar } from 'lucide-react';
 import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
+import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
 import { useToast } from '@/shared/hooks/useToast';
 import TxDeleteButton from '@/shared/components/TxDeleteButton';
@@ -67,6 +68,7 @@ export default function StatsPage() {
     lastWeekExpense: number; lastWeekIncome: number; avgDaily: number;
   } | null>(null);
   const [weekDaily, setWeekDaily] = useState<DailyTrend[]>([]);        // 本周 7 天（已补齐）
+  const [weekOffset, setWeekOffset] = useState(0);                     // 0=本周，-1=上周…
   const [weekExpenseStats, setWeekExpenseStats] = useState<CategoryStat[]>([]);
   const [weekIncomeStats, setWeekIncomeStats] = useState<CategoryStat[]>([]);
 
@@ -98,7 +100,7 @@ export default function StatsPage() {
     else if (view === 'day') loadDayData();
     else loadCustomData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearMonth, year, view, customFrom, customTo, day]);
+  }, [yearMonth, year, view, customFrom, customTo, day, weekOffset]);
 
   async function loadMonthData() {
     setLoading(true);
@@ -147,13 +149,18 @@ export default function StatsPage() {
     const today = new Date();
     const dow = today.getDay();
     const mondayOffset = dow === 0 ? -6 : 1 - dow;
-    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
+    const baseMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
+    // 按 weekOffset 偏移（0=本周，-1=上周…）
+    const monday = new Date(baseMonday.getFullYear(), baseMonday.getMonth(), baseMonday.getDate() + weekOffset * 7);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
     const lastMonday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7);
     const lastSunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 1);
-    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    const isCurrent = weekOffset === 0;
+    // 本周统计到今天为止；历史周按整周统计
+    const endDate = isCurrent ? today : sunday;
 
     const [thisWeek, lastWeek, weekRange, wExp, wInc] = await Promise.all([
-      statsRepo.getWeekSummary(fmtDate(monday), fmtDate(today)),
+      statsRepo.getWeekSummary(fmtDate(monday), fmtDate(endDate)),
       statsRepo.getWeekSummary(fmtDate(lastMonday), fmtDate(lastSunday)),
       statsRepo.getDailyTrendRange(fmtDate(monday), fmtDate(sunday)),
       statsRepo.getRangeCategoryStats(fmtDate(monday), fmtDate(sunday), 'expense'),
@@ -164,7 +171,9 @@ export default function StatsPage() {
     const thisWeekIncome = thisWeek.income;
     const lastWeekExpense = lastWeek.expense;
     const lastWeekIncome = lastWeek.income;
-    const daysPassed = Math.max(1, Math.floor((today.getTime() - monday.getTime()) / 86400000) + 1);
+    const daysPassed = isCurrent
+      ? Math.max(1, Math.floor((today.getTime() - monday.getTime()) / 86400000) + 1)
+      : 7;
     const avgDaily = thisWeekExpense / daysPassed;
 
     setWeekData({ thisWeekExpense, thisWeekIncome, lastWeekExpense, lastWeekIncome, avgDaily });
@@ -327,6 +336,15 @@ export default function StatsPage() {
     return `${head} · 周${weekdays[d.getDay()]}`;
   })();
 
+  // 周标题：本周 / 9/1-9/7
+  const weekLabel = (() => {
+    if (weekDaily.length < 7) return weekOffset === 0 ? '本周' : '上周';
+    const md = (s: string) => `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`;
+    const a = weekDaily[0]!.date;
+    const b = weekDaily[weekDaily.length - 1]!.date;
+    return `${md(a)} - ${md(b)}`;
+  })();
+
   if (loading) return <StatsSkeleton />;
 
   return (
@@ -365,7 +383,21 @@ export default function StatsPage() {
               <button onClick={() => changePeriod(1)} style={navBtn}>{'›'}</button>
             </>
           )}
-          {view === 'week' && <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)' }}>本周</span>}
+          {view === 'week' && (
+            <>
+              <button onClick={() => setWeekOffset((o) => o - 1)} style={navBtn}>{'‹'}</button>
+              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--color-text-primary)', minWidth: 96, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {weekLabel}
+              </span>
+              <button
+                onClick={() => setWeekOffset((o) => Math.min(0, o + 1))}
+                disabled={weekOffset >= 0}
+                style={{ ...navBtn, opacity: weekOffset >= 0 ? 0.3 : 1 }}
+              >
+                {'›'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -944,12 +976,15 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
 }) {
   const categories = useCategoryStore((s) => s.categories);
   const loadCategories = useCategoryStore((s) => s.loadCategories);
+  const accounts = useAccountStore((s) => s.accounts);
+  const loadAccounts = useAccountStore((s) => s.loadAccounts);
   const [txs, setTxs] = useState<Transaction[]>([]);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const long = useRowLongPress(600);
 
   useEffect(() => {
     if (categories.length === 0) loadCategories();
+    if (accounts.length === 0) loadAccounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1058,6 +1093,12 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
             <div style={{ background: 'var(--color-card)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
               {g.rows.map((tx, i) => {
                 const exp = tx.type === 'expense';
+                const sub = categories.find((c) => c.id === tx.categoryId);
+                const subName = sub?.name ?? cat.categoryName;
+                const subColor = sub?.color || accent;
+                const SubIcon = sub ? resolveCategoryIcon(sub) : IconComp;
+                const acc = accounts.find((a) => a.id === tx.accountId);
+                const metaParts = [tx.time?.slice(0, 5), tx.note, acc?.name].filter(Boolean) as string[];
                 return (
                   <div
                     key={tx.id}
@@ -1076,8 +1117,21 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
                       borderBottom: i < g.rows.length - 1 ? '0.5px solid var(--color-divider)' : 'none',
                     }}
                   >
-                    <div style={{ fontSize: 13, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                      {tx.time?.slice(0, 5)}{tx.note ? ` · ${tx.note}` : ''}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        width: 30, height: 30, borderRadius: 9, background: tintColor(subColor),
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>
+                        <SubIcon size={15} strokeWidth={1.8} color={subColor} />
+                      </div>
+                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {subName}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {metaParts.join(' · ')}
+                        </div>
+                      </div>
                     </div>
                     <span style={{
                       fontSize: 13, fontWeight: 600, marginLeft: 10, whiteSpace: 'nowrap',

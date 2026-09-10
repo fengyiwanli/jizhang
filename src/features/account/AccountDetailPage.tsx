@@ -1,6 +1,8 @@
 /**
  * 账户详情页 — 余额 + 流水列表 + 收支汇总
  */
+import { services } from '@/data/services';
+import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Zap, ArrowLeftRight } from 'lucide-react';
 import { useAccountStore } from '@/features/account/store';
@@ -14,7 +16,6 @@ import type { Transaction } from '@/domain/entities/Transaction';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
 import { getCategoryColor, resolveCategoryIcon, tintColor } from '@/shared/components/CategoryIcons';
 import { todayLocal } from '@/core/datetime';
-import { getAppContext } from '@/data/init';
 
 export default function AccountDetailPage({ accountId, onBack }: { accountId: string; onBack: () => void }) {
   const accounts = useAccountStore((s) => s.accounts);
@@ -32,7 +33,7 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
   /** 流水变动后刷新余额/汇总 */
   async function refreshData() {
     await loadTransactions(10000);
-    const { accountRepo, statsRepo } = getAppContext();
+    const { accountRepo, statsRepo } = services;
     setBalance(await accountRepo.getBalance(accountId));
     setSummary(await statsRepo.getAccountSummary(accountId));
   }
@@ -40,19 +41,24 @@ export default function AccountDetailPage({ accountId, onBack }: { accountId: st
   async function handleDeleteTx(id: string) {
     try {
       await useTransactionStore.getState().deleteTransaction(id);
-      useToast.getState().success('已删除');
-      await refreshData();
+      useToast.getState().undo('已删除', async () => {
+        await services.transactionRepo.restore(id);
+        await refreshData();
+      });
     } catch {
       useToast.getState().error('删除失败');
     }
   }
 
+  const txVer = useDataVersion('transactions');
+  const accVer = useDataVersion('accounts');
+
   useEffect(() => {
     loadTransactions(10000);
-    const { accountRepo, statsRepo } = getAppContext();
+    const { accountRepo, statsRepo } = services;
     accountRepo.getBalance(accountId).then(setBalance);
     statsRepo.getAccountSummary(accountId).then(setSummary);
-  }, [accountId]);
+  }, [accountId, txVer, accVer]);
 
   // 该账户相关交易（仅用于流水列表展示，不参与金额计算）
   const accTxs = transactions.filter((t) => t.accountId === accountId || t.toAccountId === accountId);

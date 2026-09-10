@@ -1,6 +1,8 @@
 /**
  * 「我的」Tab 设置页面
  */
+import { services } from '@/data/services';
+import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import AccountManager from '@/features/account/AccountManager';
@@ -9,7 +11,6 @@ import DataExport from '@/features/settings/DataExport';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
-import { getAppContext } from '@/data/init';
 
 export default function SettingsPage() {
   const loadCategories = useCategoryStore((s) => s.loadCategories);
@@ -19,18 +20,22 @@ export default function SettingsPage() {
   const transactions = useTransactionStore((s) => s.transactions);
   const [total, setTotal] = useState(0);
 
+  const txVer = useDataVersion('transactions');
+  const accVer = useDataVersion('accounts');
+
   useEffect(() => {
     loadCategories();
     loadAccounts();
     loadTransactions(10000);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txVer, accVer]);
 
   // 总资产走 SQL 聚合
   useEffect(() => {
-    const { accountRepo } = getAppContext();
+    const { accountRepo } = services;
     Promise.all(accounts.map(async (a) => accountRepo.getBalance(a.id)))
       .then((list) => setTotal(list.reduce((s, v) => s + v, 0)));
-  }, [accounts, transactions]);
+  }, [accounts, transactions, txVer, accVer]);
 
   return (
     <div style={{ padding: '16px 16px 80px', maxWidth: 500, margin: '0 auto' }}>

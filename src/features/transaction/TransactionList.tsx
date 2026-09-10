@@ -2,6 +2,7 @@
  * 交易列表 — 长按/点击删除按钮 → 确认弹窗 → 删除
  */
 import { useState, useRef, useCallback } from 'react';
+import { services } from '@/data/services';
 import { useTransactionStore } from '@/features/transaction/store';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
@@ -42,8 +43,12 @@ export default function TransactionList({ onTagClick }: { onTagClick?: (tag: str
     if (!confirmId) return;
     setDeleting(true);
     try {
-      await deleteTransaction(confirmId);
-      useToast.getState().success('已删除');
+      const removedId = confirmId;
+      await deleteTransaction(removedId);
+      useToast.getState().undo('已删除', async () => {
+        await services.transactionRepo.restore(removedId);
+        useTransactionStore.getState().loadTransactions(10000);
+      });
     } catch {
       useToast.getState().error('删除失败');
     }

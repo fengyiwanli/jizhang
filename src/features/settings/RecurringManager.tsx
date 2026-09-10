@@ -1,10 +1,10 @@
 /**
  * 固定收支管理页面 — 周期账单规则
  */
+import { services } from '@/data/services';
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
-import { getAppContext } from '@/data/init';
 import { frequencyLabel, type Frequency, type RecurringRule } from '@/data/repositories/RecurringRepository';
 import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
@@ -25,7 +25,7 @@ export default function RecurringManager({ onBack }: Props) {
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const { recurringRepo } = getAppContext();
+    const { recurringRepo } = services;
     setRules(await recurringRepo.list());
     setLoading(false);
   }
@@ -33,14 +33,14 @@ export default function RecurringManager({ onBack }: Props) {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(id: UUID) {
-    const { recurringRepo } = getAppContext();
+    const { recurringRepo } = services;
     await recurringRepo.delete(id);
     useToast.getState().success('已删除');
     load();
   }
 
   async function handleToggle(id: UUID, active: boolean) {
-    const { recurringRepo } = getAppContext();
+    const { recurringRepo } = services;
     await recurringRepo.toggle(id, active);
     load();
   }
@@ -174,7 +174,7 @@ function RecurringForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     if (!canSave) return;
     setSaving(true);
     try {
-      const { recurringRepo } = getAppContext();
+      const { recurringRepo } = services;
       await recurringRepo.create({
         type,
         amountInYuan: amountYuan,

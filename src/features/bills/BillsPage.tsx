@@ -1,6 +1,8 @@
 /**
  * 账单页面 — 搜索 + 多维筛选 + 按日期分组列表
  */
+import { services } from '@/data/services';
+import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Zap, Search, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
@@ -8,7 +10,6 @@ import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
 import TxDeleteButton from '@/shared/components/TxDeleteButton';
 import { useTransactionStore } from '@/features/transaction/store';
 import { useToast } from '@/shared/hooks/useToast';
-import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/data/repositories/TransactionRepository';
@@ -63,6 +64,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
   const [sheet, setSheet] = useState<'category' | 'account' | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [allTags, setAllTags] = useState<string[]>([]);
+  const txVer = useDataVersion('transactions');
 
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('bk_search_history') || '[]'); }
@@ -71,7 +73,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
 
   // 标签候选：来自全部交易中已使用过的标签
   useEffect(() => {
-    const { transactionRepo } = getAppContext();
+    const { transactionRepo } = services;
     transactionRepo.getAllTags(DEFAULT_LEDGER_ID).then(setAllTags).catch(() => setAllTags([]));
   }, [transactions]);
 
@@ -102,7 +104,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
 
   const reload = useCallback(async () => {
     setLoading(true);
-    const { transactionRepo } = getAppContext();
+    const { transactionRepo } = services;
     const txs = await transactionRepo.list({ ...buildFilter(), limit: PAGE_SIZE, offset: 0 });
     setTransactions(txs);
     setHasMore(txs.length === PAGE_SIZE);
@@ -112,7 +114,7 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
 
   const loadMore = useCallback(async () => {
     setLoading(true);
-    const { transactionRepo } = getAppContext();
+    const { transactionRepo } = services;
     const txs = await transactionRepo.list({ ...buildFilter(), limit: PAGE_SIZE, offset: offsetRef.current });
     setTransactions((prev) => [...prev, ...txs]);
     setHasMore(txs.length === PAGE_SIZE);
@@ -120,14 +122,16 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
     setLoading(false);
   }, [buildFilter]);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { reload(); }, [reload, txVer]);
 
   /** 行删除：确认后走 store 软删，刷新列表 */
   async function handleDeleteTx(id: string) {
     try {
       await useTransactionStore.getState().deleteTransaction(id);
-      useToast.getState().success('已删除');
-      reload();
+      useToast.getState().undo('已删除', async () => {
+        await services.transactionRepo.restore(id);
+        reload();
+      });
     } catch {
       useToast.getState().error('删除失败');
     }

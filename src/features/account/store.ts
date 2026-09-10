@@ -1,10 +1,10 @@
 /**
  * 账户 Zustand Store
  */
+import { services } from '@/data/services';
 import { create } from 'zustand';
 import type { Account } from '@/domain/entities/Account';
 import type { UUID } from '@/core/types';
-import { getAppContext } from '@/data/init';
 import { useToast } from '@/shared/hooks/useToast';
 
 interface AccountState {
@@ -23,7 +23,7 @@ export const useAccountStore = create<AccountState>((set, get) => ({
   loadAccounts: async () => {
     set({ loading: true });
     try {
-      const { accountRepo } = getAppContext();
+      const { accountRepo } = services;
       const accounts = await accountRepo.listAll();
       set({ accounts, loading: false });
     } catch {

@@ -112,9 +112,19 @@ export class AccountRepository {
     persistDatabase();
   }
 
-  async clearAll(): Promise<void> {
+
+  /** 撤销软删除 */
+  async restore(id: UUID): Promise<void> {
+    const now = nowUTC();
+    await this.db.execute(
+      'UPDATE accounts SET deleted_at = NULL, updated_at = ? WHERE id = ?',
+      [now, id],
+    );
+    persistDatabase();
+  }  async clearAll(): Promise<void> {
     await this.db.execute('DELETE FROM accounts');
   }
+
 
   /**
    * 获取账户完整余额（初始余额 + 交易净变动）

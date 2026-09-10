@@ -145,6 +145,16 @@ export class TransactionRepository implements ITransactionRepository {
     persistDatabase();
   }
 
+  /** 撤销软删除（配合 Toast 撤销） */
+  async restore(id: UUID): Promise<void> {
+    const now = nowUTC();
+    await this.db.execute(
+      'UPDATE transactions SET deleted_at = NULL, updated_at = ? WHERE id = ?',
+      [now, id],
+    );
+    persistDatabase();
+  }
+
   /** 清除所有交易（调试用） */
   async clearAll(): Promise<void> {
     await this.db.execute('DELETE FROM transactions');

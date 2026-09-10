@@ -6,10 +6,11 @@
  * - 日视图: 日期导航 + 收支总览 + 当天分类构成 + 当天明细
  * - 年视图: 年度总览 + 构成 + 环比 + 月度柱状图
  */
+import { services } from '@/data/services';
+import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { useEffect, useState, useRef } from 'react';
 import * as echarts from 'echarts';
 import { BarChart3, ArrowLeft, ArrowLeftRight, Calendar } from 'lucide-react';
-import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
@@ -88,6 +89,8 @@ export default function StatsPage() {
   const [editingDay, setEditingDay] = useState<Transaction | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const txVer = useDataVersion('transactions');
+  const budgetVer = useDataVersion('budgets');
 
   const lineRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
@@ -100,11 +103,11 @@ export default function StatsPage() {
     else if (view === 'day') loadDayData();
     else loadCustomData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearMonth, year, view, customFrom, customTo, day, weekOffset]);
+  }, [yearMonth, year, view, customFrom, customTo, day, weekOffset, txVer, budgetVer]);
 
   async function loadMonthData() {
     setLoading(true);
-    const { statsRepo, budgetRepo } = getAppContext();
+    const { statsRepo, budgetRepo } = services;
     const prevYM = shiftYM(yearMonth, -1);
     const [s, prev, exp, inc, trend, budgetAmount] = await Promise.all([
       statsRepo.getMonthlySummary(yearMonth),
@@ -126,7 +129,7 @@ export default function StatsPage() {
 
   async function loadYearData() {
     setLoading(true);
-    const { statsRepo } = getAppContext();
+    const { statsRepo } = services;
     const prevYear = String(Number(year) - 1);
     const [s, prev, trend, exp, inc] = await Promise.all([
       statsRepo.getYearlySummary(year),
@@ -145,7 +148,7 @@ export default function StatsPage() {
 
   async function loadWeekData() {
     setLoading(true);
-    const { statsRepo } = getAppContext();
+    const { statsRepo } = services;
     const today = new Date();
     const dow = today.getDay();
     const mondayOffset = dow === 0 ? -6 : 1 - dow;
@@ -190,7 +193,7 @@ export default function StatsPage() {
       return;
     }
     setLoading(true);
-    const { statsRepo } = getAppContext();
+    const { statsRepo } = services;
     const data = await statsRepo.getCustomSummary(customFrom, customTo);
     setCustomData({ expense: data.expense, income: data.income, count: data.count });
     setLoading(false);
@@ -198,7 +201,7 @@ export default function StatsPage() {
 
   async function loadDayData() {
     setLoading(true);
-    const { statsRepo } = getAppContext();
+    const { statsRepo } = services;
     const [sum, exp, inc, txs] = await Promise.all([
       statsRepo.getRangeSummary(day, day),
       statsRepo.getRangeCategoryStats(day, day, 'expense'),
@@ -216,8 +219,10 @@ export default function StatsPage() {
   async function handleDayDelete(id: string) {
     try {
       await useTransactionStore.getState().deleteTransaction(id);
-      useToast.getState().success('已删除');
-      loadDayData();
+      useToast.getState().undo('已删除', async () => {
+        await services.transactionRepo.restore(id);
+        loadDayData();
+      });
     } catch {
       useToast.getState().error('删除失败');
     }
@@ -226,7 +231,7 @@ export default function StatsPage() {
   /** 日视图长按编辑：按 id 取完整交易实体再打开编辑弹层 */
   async function openDayEdit(id: string) {
     try {
-      const full = await getAppContext().transactionRepo.getById(id);
+      const full = await services.transactionRepo.getById(id);
       if (full) setEditingDay(full);
     } catch { /* ignore */ }
   }
@@ -992,7 +997,7 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
     if (categories.length === 0) return;
     const ids = new Set<string>([cat.categoryId]);
     for (const c of categories) if (c.parentId === cat.categoryId) ids.add(c.id);
-    const { transactionRepo } = getAppContext();
+    const { transactionRepo } = services;
     try {
       const all = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, dateFrom: from, dateTo: to, limit: 3000 });
       const list = all
@@ -1012,8 +1017,10 @@ function CategoryDrillOverlay({ from, to, cat, onClose }: {
   async function deleteDrillTx(id: string) {
     try {
       await useTransactionStore.getState().deleteTransaction(id);
-      useToast.getState().success('已删除');
-      await loadRows();
+      useToast.getState().undo('已删除', async () => {
+        await services.transactionRepo.restore(id);
+        await loadRows();
+      });
     } catch {
       useToast.getState().error('删除失败');
     }

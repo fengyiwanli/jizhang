@@ -3,13 +3,13 @@
  * 点击一级分类：有子分类则展开二级面板，无子分类则直接选中
  * 二级面板操作：记到父分类 / 添加子分类（保存后刷新 store 立即出现在网格）
  */
+import { services } from '@/data/services';
 import { useState } from 'react';
 import { ChevronLeft, Plus, Package, type LucideIcon } from 'lucide-react';
 import type { Category } from '@/domain/entities/Category';
 import type { UUID } from '@/core/types';
 import { getCategoryColor, resolveCategoryIcon, getIconByKey, ICON_CHOICES } from './CategoryIcons';
 import { BottomSheet } from './BottomSheet';
-import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
 import { useToast } from '@/shared/hooks/useToast';
 
@@ -243,7 +243,7 @@ function AddChildSheet({ parent, onClose }: { parent: Category; onClose: () => v
     if (!n || saving) return;
     setSaving(true);
     try {
-      const { categoryRepo } = getAppContext();
+      const { categoryRepo } = services;
       await categoryRepo.create({
         ledgerId: '',
         parentId: parent.id,

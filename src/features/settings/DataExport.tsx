@@ -1,8 +1,8 @@
 /**
  * 数据导出组件 — CSV / JSON 格式下载
  */
+import { services } from '@/data/services';
 import { useState } from 'react';
-import { getAppContext } from '@/data/init';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
@@ -15,7 +15,7 @@ export default function DataExport() {
 
   async function exportCSV() {
     setExporting(true);
-    const { transactionRepo } = getAppContext();
+    const { transactionRepo } = services;
     const txs = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, limit: 99999 });
 
     const header = '日期,时间,类型,金额,分类,账户,备注,标签';
@@ -42,7 +42,7 @@ export default function DataExport() {
 
   async function exportJSON() {
     setExporting(true);
-    const { transactionRepo } = getAppContext();
+    const { transactionRepo } = services;
     const txs = await transactionRepo.list({ ledgerId: DEFAULT_LEDGER_ID, limit: 99999 });
 
     const data = txs.map((t) => {

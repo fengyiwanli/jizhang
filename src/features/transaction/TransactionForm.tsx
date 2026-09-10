@@ -4,6 +4,7 @@
  * 布局: 日期 + 类型切换 → 金额 → 分类网格/转账账户 → 底部操作
  * 支持: 支出 / 收入 / 转账
  */
+import { services } from '@/data/services';
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ArrowDown } from 'lucide-react';
 import CategoryGrid from '@/shared/components/CategoryGrid';
@@ -15,7 +16,6 @@ import { useToast } from '@/shared/hooks/useToast';
 import type { TransactionType } from '@/core/types';
 import type { UUID } from '@/core/types';
 import { todayLocal, nowTimeLocal } from '@/core/datetime';
-import { getAppContext } from '@/data/init';
 
 export default function TransactionForm({ defAccountId }: { defAccountId?: string | null }) {
   const categories = useCategoryStore((s) => s.categories);
@@ -48,7 +48,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
 
   // 账户余额走 SQL 聚合
   useEffect(() => {
-    const { accountRepo } = getAppContext();
+    const { accountRepo } = services;
     Promise.all(accounts.map(async (a) => [a.id, await accountRepo.getBalance(a.id)] as const))
       .then((entries) => setBalances(Object.fromEntries(entries)));
   }, [accounts, transactions]);

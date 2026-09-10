@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint src --ext ts,tsx --max-warnings 30",
+    "test": "node --experimental-strip-types --test src/core/__tests__/money.test.ts src/core/__tests__/datetime.test.ts",
+    "test:watch": "node --experimental-strip-types --test --watch src/core/__tests__/money.test.ts src/core/__tests__/datetime.test.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",

@@ -1,4 +1,5 @@
-import { Component, type ReactNode, useState, useEffect, useRef } from 'react';
+import { services } from '@/data/services';
+import { Component, type ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { BookOpen, TrendingUp, ListFilter, User } from 'lucide-react';
@@ -12,7 +13,7 @@ import SettingsPage from '@/features/settings/SettingsPage';
 import SettingsView from '@/features/settings/SettingsView';
 import RecurringManager from '@/features/settings/RecurringManager';
 import AccountDetailPage from '@/features/account/AccountDetailPage';
-import { initializeApp, getAppContext } from '@/data/init';
+import {initializeApp} from '@/data/init';
 import { todayLocal } from '@/core/datetime';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -41,13 +42,13 @@ export default function App() {
   // 导航栈：子页面(设置/固定收支/账户)逐层压栈；Android 系统返回手势弹栈回上一页，而不是退出
   const [stack, setStack] = useState<View[]>([{ type: 'tabs', tab: 'home' }]);
   const view = stack[stack.length - 1]!;
-  const navigate = (v: View) => setStack((prev) => [...prev, v]);
-  const goBack = () => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
-  const switchTab = (tab: string) => {
+  const navigate = useCallback((v: View) => setStack((prev) => [...prev, v]), []);
+  const goBack = useCallback(() => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev)), []);
+  const switchTab = useCallback((tab: string) => {
     setStack((prev) => (prev[prev.length - 1]?.type === 'tabs'
       ? [...prev.slice(0, -1), { type: 'tabs', tab }]
       : [...prev, { type: 'tabs', tab }]));
-  };
+  }, []);
   const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const stackRef = useRef(1);
@@ -63,7 +64,7 @@ export default function App() {
         current = t;
         setDayVersion((v) => v + 1);
         if (monthChanged) {
-          getAppContext().budgetRepo.getTotalBudget(t.slice(0, 7))
+          services.budgetRepo.getTotalBudget(t.slice(0, 7))
             .then((a) => setBudgetInYuan(a !== null ? a / 100 : null));
         }
       }
@@ -111,13 +112,12 @@ export default function App() {
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goBack]);
 
   // ready 后从 SQLite 读取当前月预算 + 默认账户
   useEffect(() => {
     if (!ready) return;
-    const ctx = getAppContext();
+    const ctx = services;
     const ym = todayLocal().slice(0, 7);
     ctx.budgetRepo.getTotalBudget(ym).then((amount) => {
       setBudgetInYuan(amount !== null ? amount / 100 : null);
@@ -127,7 +127,7 @@ export default function App() {
 
   function handleBudgetChange(v: number | null) {
     setBudgetInYuan(v);
-    const { budgetRepo } = getAppContext();
+    const { budgetRepo } = services;
     const ym = todayLocal().slice(0, 7);
     if (v !== null) budgetRepo.setTotalBudget(ym, v);
     else budgetRepo.removeTotalBudget(ym);
@@ -135,7 +135,7 @@ export default function App() {
 
   function handleDefaultAccChange(id: string | null) {
     setDefaultAccountId(id);
-    const { settingsRepo } = getAppContext();
+    const { settingsRepo } = services;
     if (id) settingsRepo.set(ACCOUNT_SETTING_KEY, id);
     else settingsRepo.remove(ACCOUNT_SETTING_KEY);
   }
@@ -147,7 +147,7 @@ export default function App() {
 
   async function handleClearData() {
     try {
-      const ctx = getAppContext();
+      const ctx = services;
       await ctx.transactionRepo.clearAll();
       await ctx.accountRepo.clearAll();
       await ctx.categoryRepo.clearAll();

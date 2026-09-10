@@ -104,6 +104,16 @@ export class CategoryRepository {
     persistDatabase();
   }
 
+  /** 撤销软删除 */
+  async restore(id: UUID): Promise<void> {
+    const now = nowUTC();
+    await this.db.execute(
+      'UPDATE categories SET deleted_at = NULL, updated_at = ? WHERE id = ?',
+      [now, id],
+    );
+    persistDatabase();
+  }
+
   /** 软删除分类 */
   async delete(id: UUID): Promise<void> {
     const now = nowUTC();

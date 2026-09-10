@@ -1,10 +1,10 @@
 /**
  * 分类 Zustand Store
  */
+import { services } from '@/data/services';
 import { create } from 'zustand';
 import type { Category, CategoryType } from '@/domain/entities/Category';
 import type { UUID } from '@/core/types';
-import { getAppContext } from '@/data/init';
 import { useToast } from '@/shared/hooks/useToast';
 
 interface CategoryState {
@@ -25,7 +25,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   loadCategories: async () => {
     set({ loading: true });
     try {
-      const { categoryRepo } = getAppContext();
+      const { categoryRepo } = services;
       const categories = await categoryRepo.listAll();
       set({ categories, loading: false });
     } catch {

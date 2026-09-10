@@ -1,11 +1,12 @@
 /**
  * 账户管理组件 — 列表 + 新增/编辑表单
  */
+import { services } from '@/data/services';
+import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { useState, useEffect } from 'react';
 import { Banknote, Building2, CreditCard, Smartphone, type LucideIcon } from 'lucide-react';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
-import { getAppContext } from '@/data/init';
 import { useToast } from '@/shared/hooks/useToast';
 import { todayLocal, nowTimeLocal } from '@/core/datetime';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
@@ -27,14 +28,18 @@ export default function AccountManager({ hideHeading }: { hideHeading?: boolean 
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [balances, setBalances] = useState<Record<string, number>>({});
 
+  const accVer = useDataVersion('accounts');
+  const txVer = useDataVersion('transactions');
+
   useEffect(() => {
     loadAccounts();
     loadTransactions(10000);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accVer, txVer]);
 
   // 账户余额走 SQL 聚合
   useEffect(() => {
-    const { accountRepo } = getAppContext();
+    const { accountRepo } = services;
     Promise.all(accounts.map(async (a) => [a.id, await accountRepo.getBalance(a.id)] as const))
       .then((entries) => setBalances(Object.fromEntries(entries)));
   }, [accounts, transactions]);
@@ -146,7 +151,7 @@ function AccountForm({ account, onClose, onSaved }: {
       return;
     }
     let cancelled = false;
-    const { accountRepo, db } = getAppContext();
+    const { accountRepo, db } = services;
     accountRepo.getBalance(account.id)
       .then((fen) => {
         if (cancelled) return;
@@ -175,7 +180,7 @@ function AccountForm({ account, onClose, onSaved }: {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const { accountRepo, transactionRepo, categoryRepo } = getAppContext();
+      const { accountRepo, transactionRepo, categoryRepo } = services;
       const creditLimitInYuan = parseFloat(creditStr) || undefined;
       const v = parseFloat(balanceStr);
       const hasValue = !isNaN(v);
@@ -249,7 +254,7 @@ function AccountForm({ account, onClose, onSaved }: {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setSaving(true);
     try {
-      const { accountRepo } = getAppContext();
+      const { accountRepo } = services;
       await accountRepo.delete(account.id);
       setSaving(false);
       onSaved();

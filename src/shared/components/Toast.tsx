@@ -38,7 +38,7 @@ export function ToastContainer() {
             key={t.id}
             onClick={() => dismiss(t.id)}
             style={{
-              padding: '10px 20px',
+              padding: '10px 16px',
               borderRadius: 12,
               background: c.bg,
               color: c.fg,
@@ -50,13 +50,31 @@ export function ToastContainer() {
               pointerEvents: 'auto',
               cursor: 'pointer',
               animation: 'toastIn 0.25s ease',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
               maxWidth: '100%',
             }}
           >
-            {t.message}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.message}</span>
+            {t.action && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  t.action!.onClick();
+                  dismiss(t.id);
+                }}
+                style={{
+                  flexShrink: 0, border: 'none', cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.85)', color: c.fg,
+                  fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
+                  padding: '4px 12px', borderRadius: 8,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                }}
+              >
+                {t.action.label}
+              </button>
+            )}
           </div>
         );
       })}

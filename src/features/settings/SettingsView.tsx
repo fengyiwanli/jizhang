@@ -1,13 +1,14 @@
 /**
  * 设置页面 — 独立全屏页面
  */
+import { services } from '@/data/services';
+import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { useState, useEffect } from 'react';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
 import { useAccountStore } from '@/features/account/store';
 import { useCategoryStore } from '@/features/category/store';
 import { resolveCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
-import { getAppContext } from '@/data/init';
 import { todayLocal } from '@/core/datetime';
 import DataBackup from './DataBackup';
 
@@ -37,19 +38,21 @@ export default function SettingsView({
   const expenseRoots = categories.filter((c) => c.type === 'expense' && !c.parentId);
   const ym = todayLocal().slice(0, 7);
 
+  const budgetVer = useDataVersion('budgets');
+
   // 读取分类预算
   useEffect(() => {
-    const { budgetRepo } = getAppContext();
+    const { budgetRepo } = services;
     budgetRepo.listCategoryBudgets(ym).then((list) => {
       const map: Record<string, string> = {};
       for (const b of list) map[b.categoryId] = String(b.amount / 100);
       setCatBudgets(map);
     });
-  }, [ym]);
+  }, [ym, budgetVer]);
 
   function saveCategoryBudget(catId: string, val: string) {
     setCatBudgets((prev) => ({ ...prev, [catId]: val }));
-    const { budgetRepo } = getAppContext();
+    const { budgetRepo } = services;
     const v = parseFloat(val);
     if (!isNaN(v) && v > 0) budgetRepo.setCategoryBudget(ym, catId, v);
     else budgetRepo.removeCategoryBudget(ym, catId);

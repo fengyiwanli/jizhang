@@ -2,6 +2,7 @@
  * 首页 — 现代极简风格
  * 余额/预算/今日概览均使用 SQL 聚合，不遍历 transactions
  */
+import { services } from '@/data/services';
 import { useEffect, useState } from 'react';
 import { Banknote, Building2, CreditCard, Smartphone } from 'lucide-react';
 import TransactionForm from './TransactionForm';
@@ -9,8 +10,8 @@ import TransactionList from './TransactionList';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
+import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { todayLocal } from '@/core/datetime';
-import { getAppContext } from '@/data/init';
 
 export default function HomePage({ defAccountId, onTagClick, onAccountClick }: {
   defAccountId?: string | null;
@@ -27,16 +28,19 @@ export default function HomePage({ defAccountId, onTagClick, onAccountClick }: {
   const [balances, setBalances] = useState<Record<string, number>>({});
   const [monthSpent, setMonthSpent] = useState(0);
   const [todayData, setTodayData] = useState<{ expense: number; income: number; count: number } | null>(null);
+  const txVer = useDataVersion('transactions');
+  const accVer = useDataVersion('accounts');
 
   useEffect(() => {
     loadCategories();
     loadAccounts();
     loadTransactions(10000);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txVer, accVer]);
 
   // 余额、预算、本月支出、今日概览全部走 SQL 聚合
   useEffect(() => {
-    const { accountRepo, budgetRepo, statsRepo } = getAppContext();
+    const { accountRepo, budgetRepo, statsRepo } = services;
     const ym = todayLocal().slice(0, 7);
     const today = todayLocal();
 

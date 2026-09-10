@@ -1,8 +1,8 @@
 /**
  * 数据备份与恢复 — 完整 JSON 备份（账户 + 分类 + 交易 + 周期账单）
  */
+import { services } from '@/data/services';
 import { useRef, useState } from 'react';
-import { getAppContext } from '@/data/init';
 import { persistDatabase } from '@/data/database/context';
 import type { DatabaseAdapter } from '@/data/database/DatabaseAdapter';
 
@@ -46,7 +46,7 @@ export default function DataBackup() {
     setBusy(true);
     setMsg(null);
     try {
-      const { db } = getAppContext();
+      const { db } = services;
       const accounts = await db.query('SELECT * FROM accounts WHERE deleted_at IS NULL');
       const categories = await db.query('SELECT * FROM categories WHERE deleted_at IS NULL');
       const transactions = await db.query('SELECT * FROM transactions WHERE deleted_at IS NULL');
@@ -86,7 +86,7 @@ export default function DataBackup() {
         throw new Error('无效的备份文件');
       }
 
-      const { db } = getAppContext();
+      const { db } = services;
       await db.transaction(async () => {
         // 清空（注意顺序：先删引用表，再删被引用表）
         await db.execute('DELETE FROM transactions');

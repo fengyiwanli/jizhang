@@ -1,10 +1,11 @@
 /**
  * 分类管理组件 — 根分类 + 二级分类展示，新增/编辑表单（Lucide 图标网格）
  */
+import { services } from '@/data/services';
+import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { useState, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useCategoryStore } from '@/features/category/store';
-import { getAppContext } from '@/data/init';
 import {
   getCategoryColor, resolveCategoryIcon, ICON_CHOICES,
   getIconByKey, isLucideKey,
@@ -22,7 +23,8 @@ export default function CategoryManager({ hideHeading }: { hideHeading?: boolean
   const [defaultType, setDefaultType] = useState<CategoryType>('expense');
   const [defaultParent, setDefaultParent] = useState<UUID | null>(null);
 
-  useEffect(() => { loadCategories(); }, []);
+  const catVer = useDataVersion('categories');
+  useEffect(() => { loadCategories(); }, [catVer]);
 
   const rootsOf = (type: CategoryType) => categories.filter((c) => c.type === type && !c.parentId);
 
@@ -235,7 +237,7 @@ function CategoryForm({ category, defaultType, defaultParent, onClose, onSaved }
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
-    const { categoryRepo } = getAppContext();
+    const { categoryRepo } = services;
     try {
       const data = { name: name.trim(), icon: iconKey, color, parentId };
       if (category) {
@@ -256,7 +258,7 @@ function CategoryForm({ category, defaultType, defaultParent, onClose, onSaved }
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setSaving(true);
     try {
-      const { categoryRepo } = getAppContext();
+      const { categoryRepo } = services;
       await categoryRepo.delete(category.id);
       setSaving(false);
       onSaved();

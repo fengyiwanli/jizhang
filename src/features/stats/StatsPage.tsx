@@ -16,6 +16,7 @@ import { useAccountStore } from '@/features/account/store';
 import { useTransactionStore } from '@/features/transaction/store';
 import { useToast } from '@/shared/hooks/useToast';
 import TxDeleteButton from '@/shared/components/TxDeleteButton';
+import FeatureGuide from '@/shared/components/FeatureGuide';
 import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
 import useRowLongPress from '@/shared/hooks/useRowLongPress';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
@@ -354,6 +355,10 @@ export default function StatsPage() {
 
   return (
     <div style={{ padding: '16px 16px 80px', maxWidth: 500, margin: '0 auto' }}>
+      <FeatureGuide
+        topic="stats"
+        text="点构成里的分类可看该类账单明细；点构成条目/明细可长按编辑；趋势图仅展示不跳转"
+      />
       {/* 视图切换 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: view === 'day' ? 8 : 16 }}>
         <div style={{ display: 'flex', background: 'var(--color-bg-secondary)', borderRadius: 10, padding: 3, flexShrink: 0, maxWidth: '100%' }}>

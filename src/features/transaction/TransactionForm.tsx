@@ -5,7 +5,7 @@
  * 支持: 支出 / 收入 / 转账
  */
 import { services } from '@/data/services';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, ArrowDown } from 'lucide-react';
 import CategoryGrid from '@/shared/components/CategoryGrid';
 import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
@@ -72,6 +72,45 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const accentColor = type === 'expense' ? 'var(--color-expense)' : type === 'income' ? 'var(--color-income)' : 'var(--color-transfer)';
   const curAccount = accounts.find((a) => a.id === (accountId || accounts[0]?.id));
 
+  /** 近 30 天分类使用频次（分类网格置顶，B-4） */
+  const freq30 = useMemo(() => {
+    const cutoff = new Date(Date.now() - 30 * 86400000);
+    const cut = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+    const map: Record<string, number> = {};
+    for (const t of transactions) {
+      if (t.date >= cut && t.categoryId) map[t.categoryId] = (map[t.categoryId] ?? 0) + 1;
+    }
+    return map;
+  }, [transactions]);
+
+  /** 高频分类置顶（稳定排序：同频次保持原顺序） */
+  const sortedTypeCategories = useMemo(
+    () => [...typeCategories].sort((a, b) => (freq30[b.id] ?? 0) - (freq30[a.id] ?? 0)),
+    [typeCategories, freq30],
+  );
+
+  const lastTx = transactions[0];
+
+  function subCategoryName(id: string | null | undefined): string {
+    if (!id) return '';
+    return categories.find((c) => c.id === id)?.name ?? '';
+  }
+
+  /** 再来一笔：取最近一笔的金额/分类/账户预填（B-4） */
+  function repeatLast() {
+    if (!lastTx) return;
+    setType(lastTx.type);
+    setAmountStr((lastTx.amount / 100).toFixed(2));
+    setCategoryId(lastTx.categoryId ?? null);
+    accTouched.current = true;
+    setAccountId(lastTx.accountId);
+    if (lastTx.type === 'transfer') setToAccountId(lastTx.toAccountId ?? '');
+    setNote(lastTx.note ?? '');
+    try { setTags(lastTx.tags ? (JSON.parse(lastTx.tags) as string[]) : []); } catch { setTags([]); }
+    const sub = subCategoryName(lastTx.categoryId);
+    useToast.getState().info(`已套用上一笔${sub ? '：' + sub : ''}`);
+  }
+
   function handleAmountChange(raw: string) {
     let v = raw.replace(/[^\d.]/g, '');
     const parts = v.split('.');
@@ -135,8 +174,25 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
   const isToday = dateStr === todayLocal();
 
+  const formRef = useRef<HTMLDivElement>(null);
+  // B-2 键盘不遮挡：输入聚焦时滚到可视区中间（配合 Android adjustResize）
+  useEffect(() => {
+    const root = formRef.current;
+    if (!root) return;
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      if (!t || (tag !== 'input' && tag !== 'textarea')) return;
+      setTimeout(() => {
+        try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* ignore */ }
+      }, 260);
+    };
+    root.addEventListener('focusin', onFocusIn);
+    return () => root.removeEventListener('focusin', onFocusIn);
+  }, []);
+
   return (
-    <div style={{ background: 'var(--color-card)', borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
+    <div ref={formRef} style={{ background: 'var(--color-card)', borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
       {/* Header: 日期 + 类型切换 */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -227,6 +283,24 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
             }}
           />
         </div>
+
+        {/* 快捷记账：再来一笔（B-4） */}
+        {lastTx && (
+          <button
+            onClick={repeatLast}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              border: '1px dashed var(--color-border)', background: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-secondary)', fontSize: 12, fontFamily: 'inherit',
+              padding: '5px 12px', borderRadius: 14, cursor: 'pointer', marginTop: -6,
+            }}
+          >
+            ↻ 再来一笔
+            <span style={{ color: 'var(--color-text-tertiary)' }}>
+              {subCategoryName(lastTx.categoryId) || '转账'} ¥{(lastTx.amount / 100).toFixed(2)}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* 转账：源账户 → 目标账户；收支：分类网格 */}
@@ -273,7 +347,7 @@ export default function TransactionForm({ defAccountId }: { defAccountId?: strin
           }}>
             选择分类
           </div>
-          <CategoryGrid key={type} categories={typeCategories} selectedId={categoryId} onSelect={setCategoryId} />
+          <CategoryGrid key={type} categories={sortedTypeCategories} selectedId={categoryId} onSelect={setCategoryId} />
         </div>
       )}
 

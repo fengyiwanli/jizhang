@@ -4,7 +4,7 @@
  * 统一全 App 的 bottom sheet 视觉，替代样式不可控的原生 <select>。
  * 复用模式参考 TransactionForm 的 AccountPicker。
  */
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 
 interface BottomSheetProps {
@@ -14,6 +14,24 @@ interface BottomSheetProps {
 }
 
 export function BottomSheet({ title, onClose, children }: BottomSheetProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // B-2 键盘不遮挡：输入框聚焦时等键盘弹起后把它滚到可视区中间
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      if (!t || (tag !== 'input' && tag !== 'textarea' && tag !== 'select')) return;
+      setTimeout(() => {
+        try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* ignore */ }
+      }, 260);
+    };
+    panel.addEventListener('focusin', onFocusIn);
+    return () => panel.removeEventListener('focusin', onFocusIn);
+  }, []);
+
   return (
     <div
       className="sheet-mask"
@@ -26,6 +44,7 @@ export function BottomSheet({ title, onClose, children }: BottomSheetProps) {
       }}
     >
       <div
+        ref={panelRef}
         className="sheet-panel"
         onClick={(e) => e.stopPropagation()}
         style={{

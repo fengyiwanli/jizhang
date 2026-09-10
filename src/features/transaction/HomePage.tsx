@@ -6,6 +6,7 @@ import { services } from '@/data/services';
 import { useEffect, useState } from 'react';
 import { Banknote, Building2, CreditCard, Smartphone } from 'lucide-react';
 import TransactionForm from './TransactionForm';
+import FeatureGuide from '@/shared/components/FeatureGuide';
 import TransactionList from './TransactionList';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
@@ -54,6 +55,10 @@ export default function HomePage({ defAccountId, onTagClick, onAccountClick }: {
 
   return (
     <div style={{ paddingBottom: 80 }}>
+      <FeatureGuide
+        topic="home"
+        text="列表点一下即可编辑账单（长按也可以）；金额下方「再来一笔」可快速重复上次记录"
+      />
       {/* 资产总览 */}
       <AssetsBar accounts={accounts} balances={balances} onAccountClick={onAccountClick} />
 

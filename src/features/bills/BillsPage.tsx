@@ -4,17 +4,17 @@
 import { services } from '@/data/services';
 import { useDataVersion } from '@/shared/hooks/useDataVersion';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Zap, Search, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Search, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { BottomSheet, SheetOption } from '@/shared/components/BottomSheet';
 import TransactionEditSheet from '@/shared/components/TransactionEditSheet';
-import TxDeleteButton from '@/shared/components/TxDeleteButton';
+import FeatureGuide from '@/shared/components/FeatureGuide';
+import TxItem from './components/TxItem';
 import { useTransactionStore } from '@/features/transaction/store';
 import { useToast } from '@/shared/hooks/useToast';
 import { useCategoryStore } from '@/features/category/store';
 import { useAccountStore } from '@/features/account/store';
 import { formatTransaction } from '@/core/format/transaction';
-import { getCategoryColor, tintColor, resolveCategoryIcon } from '@/shared/components/CategoryIcons';
-import { MoneyUtils } from '@/core/types';
+import { getCategoryColor, resolveCategoryIcon } from '@/shared/components/CategoryIcons';
 import { DEFAULT_LEDGER_ID } from '@/domain/entities/Ledger';
 import { todayLocal } from '@/core/datetime';
 import type { Transaction } from '@/domain/entities/Transaction';
@@ -148,6 +148,10 @@ export default function BillsPage({ initialTag }: { initialTag?: string }) {
 
   return (
     <div style={{ padding: '12px 16px 80px', maxWidth: 500, margin: '0 auto' }}>
+      <FeatureGuide
+        topic="bills"
+        text="长按账单可编辑、右侧垃圾桶可删除（可撤销）；顶部筛选支持类型/分类/账户/日期/标签组合"
+      />
       {/* 搜索栏 */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <div style={{ position: 'relative', flex: 1 }}>
@@ -477,85 +481,7 @@ function catIconEl(cat: Category, size = 16) {
   return <I size={size} strokeWidth={1.8} color={cat.color || getCategoryColor(cat.name)} />;
 }
 
-function highlight(text: string, keyword: string): React.ReactNode {
-  if (!keyword) return text;
-  const idx = text.toLowerCase().indexOf(keyword.toLowerCase());
-  if (idx === -1) return text;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark style={{ background: '#FFF3B0', color: 'inherit', padding: '0 1px', borderRadius: 2 }}>
-        {text.slice(idx, idx + keyword.length)}
-      </mark>
-      {text.slice(idx + keyword.length)}
-    </>
-  );
-}
-
-function TxItem({ cat, fallbackName, note, time, account, amount, type, tags, keyword, onLongPress, onDelete }: {
-  cat: Category | null; fallbackName: string; note: string; time: string;
-  account: string; amount: number; type: string; tags: string[]; keyword?: string;
-  onLongPress: () => void; onDelete?: () => void;
-}) {
-  const isExpense = type === 'expense';
-  const isIncome = type === 'income';
-  const name = cat?.name ?? fallbackName;
-  const IconComp = cat ? resolveCategoryIcon(cat) : Zap;
-  const color = cat ? (cat.color || getCategoryColor(cat.name)) : getCategoryColor(name);
-  const lpRef = useRef<number | null>(null);
-  const startPress = () => { lpRef.current = window.setTimeout(onLongPress, 600); };
-  const cancelPress = () => { if (lpRef.current !== null) { clearTimeout(lpRef.current); lpRef.current = null; } };
-
-  return (
-    <div
-      className="row-press"
-      role="button"
-      aria-label="长按编辑"
-      onTouchStart={startPress}
-      onTouchEnd={cancelPress}
-      onTouchMove={cancelPress}
-      onMouseDown={startPress}
-      onMouseUp={cancelPress}
-      onMouseLeave={cancelPress}
-      onContextMenu={(e) => { e.preventDefault(); onLongPress(); }}
-      style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '10px 8px', borderBottom: '1px solid var(--color-bg-secondary)',
-        userSelect: 'none', WebkitUserSelect: 'none',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 8,
-          /* 图标底色跟随分类色，10% 透明度，列表更有层次 */
-          background: tintColor(color),
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <IconComp size={16} strokeWidth={1.8} color={color} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {highlight(name, keyword ?? '')}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {time}
-            {note && <> · {highlight(note, keyword ?? '')}</>}
-            {account && ` · ${account}`}
-            {tags.length > 0 && ` · ${tags.join(' ')}`}
-          </div>
-        </div>
-      </div>
-      <span style={{
-        fontWeight: 600, fontSize: 14, marginLeft: 12, whiteSpace: 'nowrap',
-        color: isExpense ? 'var(--color-expense)' : isIncome ? 'var(--color-income)' : 'var(--color-transfer)',
-        fontVariantNumeric: 'tabular-nums',
-      }}>
-        {isExpense ? '-' : isIncome ? '+' : ''}{MoneyUtils.format(amount).replace('¥', '')}
-      </span>
-      {onDelete && <TxDeleteButton onDelete={onDelete} />}
-    </div>
-  );
-}
+// TxItem / highlight 已抽到 ./components/TxItem.tsx
 
 /** 筛选维度小标题 */
 function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {

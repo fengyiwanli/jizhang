@@ -11,6 +11,8 @@ import { useCategoryStore } from '@/features/category/store';
 import { resolveCategoryIcon, getCategoryColor, tintColor } from '@/shared/components/CategoryIcons';
 import { todayLocal } from '@/core/datetime';
 import DataBackup from './DataBackup';
+import { GUIDE_KEYS } from '@/shared/components/FeatureGuide';
+import { useToast } from '@/shared/hooks/useToast';
 
 interface Props {
   defaultAccountId: string | null;
@@ -49,6 +51,12 @@ export default function SettingsView({
       setCatBudgets(map);
     });
   }, [ym, budgetVer]);
+
+  /** 重新查看功能引导：清掉三处 seen 标记（B-3） */
+  async function resetGuides() {
+    await Promise.all(Object.values(GUIDE_KEYS).map((k) => services.settings.remove(k)));
+    useToast.getState().success('功能引导已重置，切换 Tab 可再次查看');
+  }
 
   function saveCategoryBudget(catId: string, val: string) {
     setCatBudgets((prev) => ({ ...prev, [catId]: val }));
@@ -212,6 +220,17 @@ export default function SettingsView({
             <div style={{ flex: 1 }}>
               <div style={titleStyle}>固定收支</div>
               <div style={descStyle}>设置每日/每周/每月/每年的固定收入或支出</div>
+            </div>
+            <ArrowLeft size={14} color="#D1D1D6" style={{ transform: 'rotate(180deg)' }} />
+          </div>
+        </Section>
+
+        {/* 功能引导 */}
+        <Section>
+          <div className="row-press" style={{ ...rowStyle, cursor: 'pointer', borderRadius: 8 }} onClick={resetGuides}>
+            <div style={{ flex: 1 }}>
+              <div style={titleStyle}>重新查看功能引导</div>
+              <div style={descStyle}>首页 / 账单 / 统计 的操作提示会再各显示一次</div>
             </div>
             <ArrowLeft size={14} color="#D1D1D6" style={{ transform: 'rotate(180deg)' }} />
           </div>
